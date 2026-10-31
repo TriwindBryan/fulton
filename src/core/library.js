@@ -939,7 +939,7 @@ class Library extends EventEmitter {
     const child = isApp
       ? spawn('open', ['-W', '-n', i.exe], { detached: true, stdio: 'ignore' })
       : isScript
-        ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', i.exe], { cwd: path.dirname(i.exe), detached: true, stdio: 'ignore', windowsHide: true })
+        ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', i.exe], { cwd: path.dirname(i.exe), detached: true, stdio: 'ignore', windowsHide: !!i.manual }) // a script that came with an install (it may download Java on first run) keeps its window
         : spawn(i.exe, [], { cwd: path.dirname(i.exe), detached: true, stdio: 'ignore', windowsHide: false });
     const started = Date.now();
     this.running.set(gameId, child);
@@ -1001,6 +1001,14 @@ class Library extends EventEmitter {
     await this.save();
   }
 
+  /** Clear every "NEW" tag in Find more at once. */
+  async markDiscoverSeen() {
+    this.discoverPrev = Date.now();
+    this.state.discoverVisitedAt = Date.now();
+    await this.save();
+    this.emitChange();
+  }
+
   /** All community-listed ports (cached for a day so browsing works offline). */
   async communityList({ force = false } = {}) {
     const cache = path.join(this.dataDir, 'community.json');
@@ -1025,7 +1033,7 @@ class Library extends EventEmitter {
   platformsFor(c) {
     if (c.get === 'build') return { win: false, mac: false, linux: false, platformsKnown: true };
     const hit = (this.state.platformCache || {})[this.platformKey(c)];
-    if (hit) return { win: hit.win, mac: hit.mac, linux: !!hit.linux, platformsKnown: true };
+    if (hit) return { win: hit.win, mac: hit.mac, linux: !!hit.linux, platformsKnown: true, released: hit.released || null };
     return {};
   }
 
@@ -1042,7 +1050,7 @@ class Library extends EventEmitter {
       const k = this.platformKey(c);
       if (c.get === 'build' || keys.has(k)) return false; // (two list entries for one download are checked once)
       keys.add(k);
-      return !(cache[k] && now - cache[k].at < platforms.TTL);
+      return !(cache[k] && cache[k].v === 2 && now - cache[k].at < platforms.TTL); // (v2 entries know the release date)
     });
     if (!todo.length) { this.platformSummary = { total: keys.size, failed: 0 }; return Promise.resolve({ checked: 0, failed: 0 }); }
     const job = { done: 0, total: todo.length, failed: 0 };
@@ -1052,8 +1060,8 @@ class Library extends EventEmitter {
     const one = async (c) => {
       for (;;) {
         try {
-          const { names } = await platforms.latestAssetNames(c.repo, this.state.settings.githubToken, fetchImpl);
-          cache[this.platformKey(c)] = { ...platforms.platformsOf(names, c.assetFilter), at: Date.now() };
+          const { names, released } = await platforms.latestAssetNames(c.repo, this.state.settings.githubToken, fetchImpl);
+          cache[this.platformKey(c)] = { ...platforms.platformsOf(names, c.assetFilter), released: released || null, v: 2, at: Date.now() };
           return true;
         } catch (e) {
           // GitHub asked us to slow down: pause, then carry on (a few times at most)

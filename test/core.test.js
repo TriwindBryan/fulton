@@ -1499,7 +1499,7 @@ test('Find more: which ports have Windows and Mac downloads', async () => {
     if (m) return { status: 200, ok: true, text: async () => html(m[1], m[2], releases[m[1]]) };
     return { status: 404, ok: false };
   };
-  assert.deepEqual(await pl.latestAssetNames('hm/soh', '', fakeFetch), { tag: 'v1.0', names: ['SoH-Win64.zip', 'SoH-Mac.zip'] });
+  assert.deepEqual(await pl.latestAssetNames('hm/soh', '', fakeFetch), { tag: 'v1.0', names: ['SoH-Win64.zip', 'SoH-Mac.zip'], released: null });
   assert.deepEqual(await pl.latestAssetNames('no/releases', '', fakeFetch), { tag: null, names: [] });
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-plat-'));
@@ -1719,4 +1719,47 @@ test('a new install starts with an empty shelf; Find more adds built-in ports; r
   fs.writeFileSync(path.join(old, 'data', 'state.json'), JSON.stringify({ installed: {}, roms: [] }));
   const upgraded = await new Library({ dataDir: path.join(old, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'linux', startEmpty: true }).load();
   assert.equal(upgraded.snapshot().games.length, catalog.games.length);
+});
+
+test('findExecutable: a Java game with only a launch script starts from the script, never a tool inside the bundled JDK', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-java-'));
+  fs.mkdirSync(path.join(dir, 'libs'));
+  fs.writeFileSync(path.join(dir, 'launch.bat'), '@echo off');
+  fs.writeFileSync(path.join(dir, 'gpu-optional-setup.bat'), '@echo off');
+  fs.writeFileSync(path.join(dir, 'updater.jar'), 'x');
+  assert.equal(await inst.findExecutable(dir, undefined, 'win32'), path.join(dir, 'launch.bat'));
+  fs.mkdirSync(path.join(dir, 'jdk25', 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'jdk25', 'bin', 'jaccessinspector.exe'), Buffer.alloc(2e5));
+  assert.equal(await inst.findExecutable(dir, undefined, 'win32'), path.join(dir, 'launch.bat'), 'the JDK tool is ignored');
+  fs.writeFileSync(path.join(dir, 'Game.exe'), Buffer.alloc(1000));
+  assert.equal(await inst.findExecutable(dir, undefined, 'win32'), path.join(dir, 'Game.exe'), 'a real exe still wins');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('Find more: release dates are read from a release page and kept with the Windows / Mac check', async () => {
+  const platforms = require('../src/core/platforms');
+  assert.equal(platforms.releasedFromHtml('<relative-time datetime="2026-10-17T01:16:33Z">Oct 17</relative-time>'), Date.parse('2026-10-17T01:16:33Z'));
+  assert.equal(platforms.releasedFromHtml('no dates here'), null);
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-rel-'));
+  const lib = await new Library({ dataDir: path.join(work, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'linux' }).load();
+  const c = { repo: 'a/b', assetFilter: '', get: 'download' };
+  lib.state.platformCache = { 'a/b#': { win: true, mac: false, linux: false, released: 1700000000000, v: 2, at: Date.now() } };
+  assert.equal(lib.platformsFor(c).released, 1700000000000);
+  // an entry saved before dates were kept is checked again
+  lib.state.platformCache = { 'a/b#': { win: true, mac: false, linux: false, at: Date.now() } };
+  let asked = 0;
+  const html = '<a href="/a/b/releases/download/v1/x-win.zip">x</a><relative-time datetime="2026-09-01T00:00:00Z"></relative-time>';
+  const fetchImpl = async (url) => { asked++; return url.endsWith('/releases/latest') ? { status: 200, ok: true, url: 'https://github.com/a/b/releases/tag/v1' } : { status: 200, ok: true, text: async () => html }; };
+  await lib.checkPlatforms([c], { fetchImpl });
+  assert.ok(asked >= 2, 'old entries are checked again');
+  assert.equal(lib.platformsFor(c).released, Date.parse('2026-09-01T00:00:00Z'));
+});
+
+test('problem report zip is a valid archive', () => {
+  const { makeZip, crc32 } = require('../src/core/zipwrite');
+  assert.equal(crc32(Buffer.from('123456789')), 0xcbf43926);
+  const z = makeZip([{ name: 'a.txt', data: 'hello '.repeat(40) }, { name: 'b.log', data: 'x' }]);
+  assert.equal(z.readUInt32LE(0), 0x04034b50);
+  assert.equal(z.readUInt32LE(z.length - 22), 0x06054b50);
+  assert.equal(z.readUInt16LE(z.length - 22 + 10), 2);
 });

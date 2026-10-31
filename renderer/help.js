@@ -21,7 +21,7 @@ window.HELP = [
     title: 'Getting started',
     lead: 'Fulton finds fan-made PC versions of classic games, installs them, and starts them for you. You bring the game files from your own copies.',
     steps: [
-      '<b>Add your ROMs.</b> Click <b>ROM Folder</b> at the top and pick the folder where you keep your ROMs, or drop ROM files on the window. Fulton checks each one and shows which games it unlocks.',
+      '<b>Add your ROMs.</b> Open <b>My ROMs</b>, click <b>Add a folder</b> and pick the folder where you keep your ROMs, or drop ROM files on the window. Fulton checks each one and shows which games it unlocks.',
       '<b>Pick a game</b> on the <b>Games</b> tab. Games marked <b>Ready to go</b> have everything they need.',
       '<b>Click Install</b>. Fulton downloads the game from its official page and sets it up.',
       '<b>Click ▶ Play.</b> That\'s it. Fulton keeps track of play time and backs up your saves.',
@@ -36,7 +36,7 @@ window.HELP = [
     lead: 'A ROM is a copy of a game cartridge or disc, saved as a file. Most ports need one to get the game\'s graphics, music and levels, because the ports only contain code.',
     steps: [
       '<b>Use your own games.</b> Fulton never includes or downloads ROMs. Make them from cartridges and discs you own: open a game\'s info panel and click <b>How do I get this ROM?</b> for a step-by-step guide for that console.',
-      '<b>Add them once.</b> Click <b>ROM Folder</b> and pick the folder where you keep them. Fulton watches it and picks up new ROMs by itself. Your files are never moved or copied.',
+      '<b>Add them once.</b> Open <b>My ROMs</b>, click <b>Add a folder</b> and pick the folder where you keep them. Fulton watches it and picks up new ROMs by itself. Your files are never moved or copied.',
       '<b>Check what matches.</b> The <b>My ROMs</b> tab lists every ROM Fulton recognised, with the console and the games it unlocks.',
       '<b>Wrong version?</b> Some ports need one exact version (for example the USA release). The game\'s info panel says which one, and why a ROM doesn\'t fit.',
       '<b>Do I have to add ROMs?</b> No. Many games ask for the ROM themselves the first time they start. Adding them here just means Fulton can hand it over for you.',
@@ -109,10 +109,10 @@ window.HELP = [
     lead: 'Keep the games you love at the top, and give Fulton your own colors.',
     steps: [
       '<b>Favorites:</b> on a game\'s page click <b>☆ Add to favorites</b>. Favorites get their own row on the Games tab (after <b>Recently played</b>), a ★ on their cover, and the <b>★ Favorites</b> button next to ROMs at the top of the Games tab, which shows only them (key 6, or LB/RB on a controller).',
-      '<b>Colors:</b> in <b>Settings → Colors</b>, pick a theme (Fulton Blue, the default, Alliance Gold, Frost, Midnight, Graphite and more). The accent color on buttons, links and the selected game changes straight away, along with the soft glow behind the window.',
+      '<b>Colors:</b> in <b>Customize → Colors</b>, pick a theme (Fulton Blue, the default, Alliance Gold, Frost, Midnight, Graphite and more). The accent color on buttons, links and the selected game changes straight away, along with the soft glow behind the window.',
       '<b>Your own colors:</b> pick <b>Custom</b> and choose each color: the accent and the two background glows. <b>Start again</b> goes back to the theme you started from.',
-      '<b>Behind the selected game:</b> in <b>Settings → Colors</b>, choose a soft glow in the cover\'s color (<b>Color wash</b>), nothing (<b>Theme only</b>), or the blurred cover.',
-      '<b>Background:</b> in <b>Settings → Background</b>, use any picture as the wallpaper behind the window, and darken it so text stays readable.',
+      '<b>Behind the selected game:</b> in <b>Customize → Colors</b>, choose a soft glow in the cover\'s color (<b>Color wash</b>), nothing (<b>Theme only</b>), or the blurred cover.',
+      '<b>Background:</b> in <b>Customize → Background</b>, use any picture as the wallpaper behind the window, and darken it so text stays readable.',
     ],
     actions: [['Go to Settings', 'settings'], ['Go to Games', 'shelf']],
     keywords: 'favorite favourite star color colour theme custom background look appearance recently played',

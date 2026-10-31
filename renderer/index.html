@@ -8,6 +8,18 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ic-cart" viewBox="0 0 24 24"><path d="M6 3h12a1 1 0 011 1v14l-2 3H7l-2-3V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><rect x="8" y="5.5" width="8" height="5" rx=".8" fill="currentColor" opacity=".5"/><path d="M9 15h6M9 18h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+<symbol id="ic-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6a6 6 0 016 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".6"/></symbol>
+<symbol id="ic-handheld" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="8.5" y="5" width="7" height="6" rx=".8" fill="currentColor" opacity=".5"/><path d="M9 16v3M7.5 17.5h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="15" cy="17" r="1.1" fill="currentColor"/></symbol>
+<symbol id="ic-dual" viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7.5" y="4.8" width="9" height="5.5" rx=".8" fill="currentColor" opacity=".5"/><rect x="7.5" y="13" width="9" height="5.5" rx=".8" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+<symbol id="ic-pad" viewBox="0 0 24 24"><path d="M7.5 7h9a5 5 0 014.9 6l-.8 4a2.4 2.4 0 01-4 1.2L14.5 16h-5l-2.1 2.2a2.4 2.4 0 01-4-1.2l-.8-4A5 5 0 017.5 7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 10v3M6.5 11.5h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="16" cy="10.5" r="1" fill="currentColor"/><circle cx="18" cy="12.5" r="1" fill="currentColor"/></symbol>
+<symbol id="ic-box" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 12.5h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17" cy="12.5" r="1.1" fill="currentColor"/></symbol>
+<symbol id="ic-arcade" viewBox="0 0 24 24"><path d="M7 2.5h10l1 5v14H6v-14z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><rect x="8.5" y="5" width="7" height="5" rx=".8" fill="currentColor" opacity=".5"/><circle cx="10" cy="15" r="1.2" fill="currentColor"/><path d="M14 15h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="ic-pc" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10.5 18.5h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+</defs></svg>
+
   <script src="platform.js"></script>
   <!-- the wallpaper behind the window: soft theme glows, or your own picture -->
   <div class="sky" aria-hidden="true"></div>
@@ -21,10 +33,12 @@
       <nav class="tabs" id="tabs">
         <span class="side-label">Library</span>
         <button class="tab" data-view="shelf"><i class="ico" aria-hidden="true">▦</i><span class="tl">Games</span> <span class="count" id="c-all"></span></button>
+        <button class="tab" data-view="updates"><i class="ico" aria-hidden="true">↑</i><span class="tl">Updates</span> <span class="count new-count" id="c-upd" hidden></span></button>
         <button class="tab" data-view="roms"><i class="ico" aria-hidden="true">◉</i><span class="tl">My ROMs</span> <span class="count" id="c-roms"></span></button>
         <span class="side-label">Discover</span>
         <button class="tab" data-view="discover"><i class="ico" aria-hidden="true">⌕</i><span class="tl">Find more</span> <span class="count new-count" id="c-new" hidden></span></button>
         <span class="side-label">App</span>
+        <button class="tab" data-view="customize"><i class="ico" aria-hidden="true">✎</i><span class="tl">Customize</span></button>
         <button class="tab" data-view="settings"><i class="ico" aria-hidden="true">⚙</i><span class="tl">Settings</span></button>
         <button class="tab" data-view="help"><i class="ico" aria-hidden="true">?</i><span class="tl">Help</span></button>
       </nav>
@@ -40,8 +54,8 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M16 16l5 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
           <input id="search" type="search" placeholder="Search games" autocomplete="off">
         </label>
-        <button class="btn3d cyan" id="btn-load-rom" title="Pick ROM files">+ Load ROM</button>
-        <button class="btn3d purple small" id="btn-add-roms" title="Add a folder of ROMs (searched every time Fulton starts)">ROM Folder</button>
+        <button class="btn3d small ghost" id="btn-customize" data-act="customize" title="Change colors, the background picture and the edge fades"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 3l2 2-9.5 9.5-3-3L19 3z"/><path d="M8.5 11.5C6 11.5 5 13 5 15c0 1.5-1 2.5-2 3 2.5 1 6 .5 7-2 .5-1 .5-2.5-1.5-4.5z" fill="currentColor" stroke="none"/></svg><span>Customize</span></button>
+        <button class="btn3d small ghost top-support" id="btn-support-top" title="Fulton is free. If you enjoy it, you can support it on Ko-fi."><span class="heart" aria-hidden="true">♥</span><span>Support</span></button>
       </header>
 
   <section class="hero" id="detail" aria-live="polite"></section>
@@ -63,6 +77,7 @@
 
   <div class="toasts" id="toasts" role="status"></div>
   <script src="../src/core/color.js"></script>
+  <script src="sysfacts.js"></script>
   <script src="themes.js"></script>
   <script src="help.js"></script>
   <script src="app.js"></script>

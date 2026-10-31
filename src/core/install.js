@@ -210,7 +210,16 @@ async function findExecutable(dir, exeHint, platform = process.platform) {
   const isExe = platform === 'win32'
     ? (f) => /\.exe$/i.test(f.full)
     : (f) => /\.appimage$/i.test(f.full) || (!path.extname(f.full) && f.size > 500 * 1024);
-  let cands = files.filter(isExe).filter((f) => !NOT_THE_GAME.test(path.basename(f.full)));
+  // tools inside a bundled Java (jdk25\\bin\\jaccessinspector.exe...) are never the game
+  const inJava = (f) => /(^|[\\/])(jdk|jre|java|openjdk)[^\\/]*[\\/]/i.test(path.relative(dir, f.full));
+  let cands = files.filter(isExe).filter((f) => !NOT_THE_GAME.test(path.basename(f.full)) && !inJava(f));
+  if (!cands.length && platform === 'win32') {
+    // no .exe: some games (Java ones like Severed Chains) start from a launch script at the top of the folder
+    const scripts = files.filter((f) => f.depth <= 1 && /\.(bat|cmd)$/i.test(f.full) && !NOT_THE_GAME.test(path.basename(f.full)) && !/(optional|install|config|uninst)/i.test(path.basename(f.full)));
+    const rank = (f) => (/^(launch|start|run|play)/i.test(path.basename(f.full)) ? 0 : 1);
+    scripts.sort((a, b) => rank(a) - rank(b) || a.depth - b.depth);
+    return scripts.length ? scripts[0].full : null;
+  }
   if (exeHint) {
     const re = new RegExp(exeHint, 'i');
     const hinted = cands.filter((f) => re.test(path.relative(dir, f.full).replace(/\\/g, '/')) || re.test(path.basename(f.full)));

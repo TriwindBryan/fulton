@@ -2,6 +2,75 @@
 
 From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
 
+## Beta 0.0023 (build 1.56) — in progress
+
+**Make it yours, and find your way around**
+- **Customize** is now its own page, opened from the button in the top bar or the sidebar: colors, your own background picture and the edge fades. Settings keeps everything else (folders, token, backups, covers, controller).
+- **A short, skippable tour** the first time you open Fulton (and once after updating): Find more, Updates, Make it yours, your shelf. Replay it any time from Settings → Take the tour.
+
+**Support in two places**
+- A **Support** (♥) button now sits in the top bar next to Customize, as well as in the sidebar. It opens Fulton's Ko-fi page.
+
+**Smoother game page**
+- The big banner at the top of a game (cover, facts, ROM) now folds up **smoothly as you scroll**, and opens again as you scroll back up, instead of snapping. You can read all the game's info as it moves.
+
+**Find more card size slider**
+- The three size buttons are now one **Size slider**. Slide left for a compact **List** (one line per port), or right for bigger and bigger cards, from Tiny to Huge. It remembers where you left it.
+
+**The filter bar uses your colors**
+- The bar above your games now takes the colors you picked in Customize, about 80% shown so your background picture still shows through, as a rounded panel with a soft gradient and a thin line in your accent color. It was a flat dark grey bar before.
+
+**Easier to read**
+- Filter buttons, type buttons, labels and menus have darker backgrounds and brighter text, so unselected ones are readable on any background picture.
+
+**Cleaner top bar**
+- The **Load ROM** and **ROM Folder** buttons are gone from the top bar. Add ROMs from **My ROMs**, from any game's own Load ROM button, or by dropping files on the window. The controller's Y button still picks ROM files.
+
+**Support**
+- **A Sponsor button** on the GitHub page.
+- **One friendly support card**, shown once, after your 5th game is installed. Never during play or an install, and never again.
+- **Report a problem** (Settings): saves one zip with your log, version and the list of games on your shelf, to send to the developer. It never includes ROMs, saves, tokens or keys.
+
+## Beta 0.0022 (build 1.55) — October 27, 2026
+
+**Games page: a Find more card at the end of your selection**
+- On Games, a dashed **Find more** card sits at the end of the list with how many matching ports you don't have yet. Click it and Find more opens with the same console and type selected, and **Not on my shelf** on (click its × to see everything). If nothing on your shelf matches, the same button shows in the empty message. It shows on All too, so when you've scrolled to the end and found nothing, one click takes you to Find more. It doesn't show while searching, or under Favorites, My ROMs or Installed.
+
+**Find more: PS4 timeline**
+- The PS4 header now reads "launched 2013 · no longer in production (no official end date)", with the line fading out through 2020, the years it was still being built, instead of ending at a lone dot.
+
+**Find more: a much better search**
+- **Search by the game's name** (Ocarina of Time, Super Mario 64…). Matches on the game name come first, then the project, team and console. Punctuation and accents don't matter.
+- **Type "new" or "updated"** (also "latest", "recent") to see new and recently updated ports (last 30 days), newest first.
+- **More date buttons:** **2 years** and **Older than a year**, plus a **Last [ ] days** box where you type any number of days.
+- **Download for:** Any / Windows / Mac, and a **Status** menu (Playable, Complete…).
+- **"N ports match"** counter at the top of the list and a **Clear all** button that resets every filter.
+- **Tidier Find more:** the filters now live behind one button with a little balloon on it, **Open filters** / **Hide filters** (with a count of how many are on). Search, Size, Sort and Refresh sit on the top row, the console buttons stay in view, and a "Showing" line lists what's filtering the list, with an × on each and Clear all.
+- **Fixed: searching on Find more no longer throws you into your games.** The search box at the top now searches Find more while you're there (it says so), and stays in sync with the Find more search box.
+- **System icons:** every system button on Find more gets a small icon (cartridge, disc, handheld, two-screen, gamepad, arcade cabinet, PC, mobile), and a box at the bottom right, under the buttons, shows the full name of the system you picked ("Nintendo Entertainment System"), its icon in the system's color, how many ports it has and how many have a Windows download. A **System icons** menu (Show icons / Hide icons) turns it all off.
+- **About each system:** pick a system on Find more and the header shows its full name, maker, generation, how many ports Fulton has, and (where known) consoles sold and licensed US games, with a timeline from launch to end of production. The facts live in `renderer/sysfacts.js`, where anything can be corrected; a fact that isn't known is simply left out. Numbers marked ≈ are approximate.
+- **All systems view:** with no console picked, the header shows the total ports, consoles covered and ports updated lately, with a small chart of **new releases per month** (last 12 months, busiest month highlighted, hover a bar for the month and count) tucked in beside the numbers. Release dates fill in over the first few minutes, and the chart says "still counting" meanwhile.
+- **Card size:** **Normal / Large / Huge** buttons make the Find more cards bigger (bigger pictures and text, fewer per row). Fulton remembers your choice.
+- **Wider grid:** 4 columns on a wide or maximized window, 5 on a big monitor.
+
+**Updates**
+- **New Updates page** (sidebar, with a count): every installed game that has a newer release, favorites first, with the version change, release date and a "What's new" preview. **Update** one, or **Update all** (saves are backed up first). **Check now** looks again.
+- **Update alerts are on by default** and can be switched off in Settings → Update alerts. They give you the count in the sidebar, the "NEW UPDATE!" badge on games, and a heads-up when a **favorite** gets a new version (a message in Fulton plus a desktop notification). Fulton re-checks every 6 hours while it's open.
+- **Find more** keeps its **✦ New** button and the count on the Find more tab. "New" means added to the lists since your last visit; **Settings → Recently updated means** sets the window (3, 7, 14, 21, 30 or 60 days) for typing "new" or "updated" in search. **Mark all as seen** clears the NEW tags, and Fulton remembers your Sort and card Size between visits (the console and filters always start on All when you launch Fulton, and are kept while you move around inside it).
+
+**Background**
+- **Fixed:** the Background preview in Settings now updates the moment you pick an image.
+- **New: Color fade.** Fade a color in over your picture from any corner or edge (combine as many as you like), with its own color picker, a Strength slider and a Reach slider. Works with Darken and See-through.
+
+## Beta 0.0021 (build 1.54) — October 27, 2026
+
+**Find more: find what's new, fast**
+- **Updated within:** one click filters the list to ports with a release in the last **30 days, 60 days, 90 days, 6 months or 1 year**. Each button shows how many ports match.
+- **Sort:** list order, **newest release**, or name.
+- **Each card says when it was last updated** ("Updated 12 days ago").
+- Release dates are collected in the background the first time you open Find more (a few minutes for the whole list), and a note says so while it's still going.
+- **Fixed: Java games like Severed Chains.** Fulton no longer says "couldn't find the game's .exe" for them. When a download has no .exe it starts the game from its launch script (and never picks a tool inside a bundled Java by mistake). The script's window stays open, since it may download Java the first time.
+
 ## Beta 0.0020 (build 1.53) — October 23, 2026
 
 **Cartridge is now Fulton, with a new look**

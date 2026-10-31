@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { Library } = require('./src/core/library');
 const { Inspector } = require('./src/core/inspector');
+const { makeZip } = require('./src/core/zipwrite');
 
 // ---------- log file (%APPDATA%\Fulton\fulton.log): what started, how long it took, and anything that froze the window
 let logFile = null;
@@ -243,6 +244,33 @@ app.whenReady().then(async () => {
   handle('openPath', (p) => shell.openPath(p || lib.dirs.root));
   handle('reveal', (p) => shell.showItemInFolder(p));
   handle('openLog', () => shell.openPath(logFile));
+  // "Report a problem": one zip with the log and the basics (never tokens or keys), saved where you choose
+  handle('reportProblem', async () => {
+    const os = require('os');
+    let snap = null;
+    try { snap = lib.snapshot(); } catch { /* still make a report */ }
+    const settings = { ...((lib.state && lib.state.settings) || {}) };
+    for (const k of Object.keys(settings)) if (/token|key|secret|password/i.test(k) && settings[k]) settings[k] = '(set, hidden)';
+    const games = snap ? snap.games.map((g) => `${g.id}\t${g.system}\t${g.installed ? `installed ${g.installed.tag || ''}` : 'not installed'}${g.running ? ' (running)' : ''}${g.updateAvailable ? ' (update available)' : ''}`) : [];
+    const info = [
+      `Fulton ${app.getVersion()} (${(require('./package.json').cartridge || {}).label || ''})`,
+      `Platform: ${process.platform} ${os.release()} ${process.arch}`,
+      `Electron ${process.versions.electron}, Node ${process.versions.node}`,
+      `Memory: ${Math.round(os.totalmem() / 1048576)} MB total, ${Math.round(os.freemem() / 1048576)} MB free`,
+      `Created: ${new Date().toISOString()}`,
+      '', 'Settings (tokens and keys hidden):', JSON.stringify(settings, null, 2),
+      '', `Games on the shelf: ${games.length}`, ...games,
+    ].join('\n');
+    let logText = '';
+    try { logText = fs.readFileSync(logFile, 'utf8'); } catch { logText = '(no log yet)'; }
+    const zip = makeZip([{ name: 'info.txt', data: info }, { name: 'fulton.log', data: logText }, { name: 'README.txt', data: 'Send this file to the developer. It holds your Fulton version, settings (without tokens or keys), the list of games on your shelf, and the log. It does not include your ROMs, saves or any game files.' }]);
+    const res = await dialog.showSaveDialog(win, { title: 'Save problem report', defaultPath: path.join(app.getPath('downloads'), 'Fulton-problem-report.zip'), filters: [{ name: 'Zip file', extensions: ['zip'] }] });
+    if (res.canceled || !res.filePath) return null;
+    fs.writeFileSync(res.filePath, zip);
+    shell.showItemInFolder(res.filePath);
+    log(`Problem report saved: ${res.filePath}`);
+    return res.filePath;
+  });
   handle('log', (text) => { log(`UI: ${String(text).slice(0, 500)}`); });
   handle('openUrl', (url) => { if (/^https:\/\//.test(url)) return shell.openExternal(url); return null; });
 
@@ -369,6 +397,7 @@ app.whenReady().then(async () => {
   handle('addUserGame', (entry) => lib.addUserGame(entry));
   handle('communityList', (force) => lib.communityList({ force }));
   handle('discoverVisited', () => lib.discoverVisited());
+  handle('markDiscoverSeen', () => lib.markDiscoverSeen());
   handle('checkPlatforms', async () => {
     const { items } = await lib.communityList();
     let last = 0;
@@ -417,6 +446,7 @@ app.whenReady().then(async () => {
   app.on('activate', () => { if (!win || win.isDestroyed()) createWindow(); else win.show(); });
   const tr = Date.now();
   lib.refreshReleases().then(() => log(`Checked ports for updates in ${((Date.now() - tr) / 1000).toFixed(1)}s`), (e) => log(`Checking ports for updates failed: ${e.message}`));
+  setInterval(() => { lib.refreshReleases().catch(() => {}); }, 6 * 3600 * 1000);
   // Pick up any ROMs added to the saved folders since last time.
   lib.on('scan', (on) => { if (win && !win.isDestroyed()) win.webContents.send('scan', on); });
   const notice = (title, body, kind = 'ok') => { if (win && !win.isDestroyed()) win.webContents.send('notice', { title, body, kind }); };

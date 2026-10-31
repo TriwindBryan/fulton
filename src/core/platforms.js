@@ -15,12 +15,19 @@ function assetNamesFromHtml(html, repo) {
   return [...names];
 }
 
-/** { tag, names } for the latest release, { tag: null } when there's none. Throws when GitHub can't be reached. */
+/** When the release's files were published (ms), from the first time stamp in a release page's asset list. */
+function releasedFromHtml(html) {
+  const m = /datetime="([^"]+)"/.exec(html || '');
+  const t = m ? Date.parse(m[1]) : NaN;
+  return Number.isFinite(t) ? t : null;
+}
+
+/** { tag, names, released } for the latest release, { tag: null } when there's none. Throws when GitHub can't be reached. */
 async function latestAssetNames(repo, token, fetchImpl = fetch) {
   if (token) {
     try {
       const rel = await gh.latestRelease(repo, token);
-      return { tag: rel.tag_name, names: (rel.assets || []).map((a) => a.name) };
+      return { tag: rel.tag_name, names: (rel.assets || []).map((a) => a.name), released: Date.parse(rel.published_at || '') || null };
     } catch (e) {
       if (e.code === 'NOT_FOUND') return { tag: null, names: [] };
       throw e;
@@ -36,7 +43,8 @@ async function latestAssetNames(repo, token, fetchImpl = fetch) {
   const list = await fetchImpl(`https://github.com/${repo}/releases/expanded_assets/${tag}`, { headers: head });
   if (list.status === 429) { const e = new Error('GitHub is busy'); e.code = 'RATE_LIMIT'; throw e; }
   if (!list.ok) throw new Error(`GitHub answered ${list.status}`);
-  return { tag: decodeURIComponent(tag), names: assetNamesFromHtml(await list.text(), repo) };
+  const body = await list.text();
+  return { tag: decodeURIComponent(tag), names: assetNamesFromHtml(body, repo), released: releasedFromHtml(body) };
 }
 
 /** Does this list of downloads have one for Windows / for a Mac? Same rules Install uses. */
@@ -51,4 +59,4 @@ function platformsOf(names, assetFilter) {
   return { win, mac, linux };
 }
 
-module.exports = { TTL, assetNamesFromHtml, latestAssetNames, platformsOf };
+module.exports = { TTL, releasedFromHtml, assetNamesFromHtml, latestAssetNames, platformsOf };

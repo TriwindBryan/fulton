@@ -52,6 +52,14 @@ For every later version: bump the version, build, and make a new release the sam
 
 Fulton is a free launcher for decompiled, recompiled and remade PC ports of classic games: Zelda 64: Recompiled, Ship of Harkinian, sm64coopdx, Perfect Dark and many more. It finds the ports, downloads them from their official releases, installs them, and starts them for you. You bring your own ROMs.
 
+### What's new
+- **Cartridge is now Fulton.** New name, new balloon-and-cartridge icon, and the tagline "Your home base for recomps, decomps and remakes". It installs over Cartridge, and your settings, favorites and library folder carry over automatically (your old data folder is left in place as a backup).
+- **A new look.** A dark, Mac-style layout with a sidebar, square covers and a blue accent.
+- **Themes are still here, and better.** Ten color themes, plus **Custom** with a real color picker. Your custom colors are remembered when you try other themes.
+- **Background picture.** Use any picture behind the app, with **Darken** and a new **See-through** slider so it actually shows.
+- **No games packed in.** A new install starts with an empty shelf. Browse **Find more** and press **+ Add** for the ports you want. Any game can be taken off with **Remove from shelf** (an installed one is uninstalled first, after asking). If you already used Cartridge, your shelf stays as it was.
+- **Uninstall and Remove from shelf** sit at the bottom of the side panel, out of the way.
+
 ### Download
 **Windows**
 - **Fulton-1.53.0-Setup.msi**: the installer (recommended). Adds Start menu and desktop shortcuts; uninstall from Settings → Apps.
