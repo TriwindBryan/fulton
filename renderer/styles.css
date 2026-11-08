@@ -1532,8 +1532,45 @@ select option, select optgroup { background-color: #1b2130 !important; color: #f
 .hero .plates, .hero .romcart, .hero .hero-more { max-height: calc(var(--h, 600px) * (1 - var(--p))); opacity: calc(1 - var(--p) * 1.6); overflow: hidden; margin-top: calc(var(--igap0) * var(--p) * -1); }
 body.hero-gone .hero .plates, body.hero-gone .hero .romcart, body.hero-gone .hero .hero-more { visibility: hidden; }
 
-/* Support button in the top bar (the sidebar one stays too) */
-.top-support { display: inline-flex; align-items: center; gap: 6px; }
-.top-support .heart { color: #ff6b81; font-size: 14px; }
-.top-support[hidden] { display: none; }
-@media (max-width: 900px) { .top-support span:not(.heart) { display: none; } }
+
+/* Drives (Settings) and the "which drive?" picker */
+.drives { display: grid; gap: 8px; }
+.drive-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,.1)); background: rgba(0,0,0,.28); }
+.drive-row.gone { opacity: .75; }
+.drive-main { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.drive-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.drive-meta { font-size: 12.5px; color: rgba(255,255,255,.75); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tag-chip { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 30%, transparent); color: #fff; }
+.tag-chip.warn { background: rgba(255,170,60,.28); }
+.drive-bar { display: block; height: 6px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+.drive-bar i { display: block; height: 100%; border-radius: 99px; background: var(--accent); }
+.drive-bar i.low { background: #ff9d3c; }
+.drive-btns { display: flex; gap: 10px; flex: none; }
+.drive-choice { text-align: left; display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: #fff; font: inherit; cursor: pointer; }
+.drive-choice:hover:not([disabled]), .drive-choice:focus-visible { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,.06)); outline: none; }
+.drive-choice.rec { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.drive-choice[disabled] { opacity: .5; cursor: not-allowed; }
+.drive-choice span { font-size: 12.5px; color: rgba(255,255,255,.75); }
+.modal.drive-pick { max-width: 520px; }
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: rgba(255,255,255,.85); }
+
+/* Screenshots */
+.shots-bar { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; }
+.shots-bar .grow { flex: 1; }
+.shots-bar label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.shots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.shots-grid.small { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; max-height: 60vh; overflow: auto; padding: 2px; }
+.shot-card { display: grid; gap: 2px; text-align: left; padding: 8px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 20%, rgba(255,255,255,.1)); background: rgba(0,0,0,.28); color: #fff; font: inherit; cursor: pointer; }
+.shot-card img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 9px; background: #000; display: block; }
+.shot-card span { font-weight: 700; font-size: 13.5px; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shot-card small { color: rgba(255,255,255,.7); font-size: 12px; }
+.shot-card:hover, .shot-card:focus-visible { border-color: var(--accent); outline: none; background: color-mix(in srgb, var(--accent) 18%, rgba(0,0,0,.28)); }
+.empty-shots { text-align: center; padding: 50px 20px; color: rgba(255,255,255,.8); }
+.empty-shots b { font-size: 18px; color: #fff; }
+.empty-shots p { max-width: 520px; margin: 8px auto 0; line-height: 1.5; }
+kbd { padding: 1px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.1); font: 700 .9em var(--body, inherit); }
+.modal.shot-view { max-width: min(1100px, 94vw); width: auto; }
+.shot-big { display: block; max-width: 100%; max-height: 64vh; margin: 0 auto; border-radius: 10px; }
+.shot-meta { display: flex; gap: 12px; justify-content: center; margin: 10px 0 2px; color: rgba(255,255,255,.8); }
+.shot-actions { flex-wrap: wrap; justify-content: center; gap: 8px; }
+.modal.shot-pick { max-width: min(900px, 94vw); }

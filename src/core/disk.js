@@ -31,6 +31,22 @@ async function freeBytes(dir) {
   return null;
 }
 
+/** Free and total bytes on the drive holding dir ({ free, total }; nulls when it can't be read). */
+async function space(dir) {
+  let d = path.resolve(dir);
+  for (let i = 0; i < 40; i++) {
+    try {
+      const s = await fsp.statfs(d);
+      return { free: Number(s.bavail) * Number(s.bsize), total: Number(s.blocks) * Number(s.bsize) };
+    } catch (e) {
+      const up = path.dirname(d);
+      if (up === d || e.code !== 'ENOENT') return { free: null, total: null };
+      d = up;
+    }
+  }
+  return { free: null, total: null };
+}
+
 /** An error that tells the player which drive is full and how much is needed. */
 function spaceError(dir, need, free) {
   const e = new Error(need
@@ -54,4 +70,4 @@ function friendly(e, dir) {
   return e;
 }
 
-module.exports = { GB, fmt, driveName, freeBytes, ensureSpace, spaceError, friendly };
+module.exports = { GB, fmt, driveName, freeBytes, space, ensureSpace, spaceError, friendly };

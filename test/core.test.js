@@ -1763,3 +1763,180 @@ test('problem report zip is a valid archive', () => {
   assert.equal(z.readUInt32LE(z.length - 22), 0x06054b50);
   assert.equal(z.readUInt16LE(z.length - 22 + 10), 2);
 });
+
+test('Linux: finds the game binary or launch script, picks the AppImage, and offers the right update', async () => {
+  const update = require('../src/core/update');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-linux-'));
+  fs.writeFileSync(path.join(dir, 'start.sh'), '#!/bin/sh');
+  fs.writeFileSync(path.join(dir, 'install-deps.sh'), '#!/bin/sh');
+  assert.equal(await inst.findExecutable(dir, undefined, 'linux'), path.join(dir, 'start.sh'), 'a script-only game starts from its script');
+  fs.writeFileSync(path.join(dir, 'Game.x86_64'), Buffer.alloc(600 * 1024));
+  assert.equal(await inst.findExecutable(dir, undefined, 'linux'), path.join(dir, 'Game.x86_64'), 'a .x86_64 binary wins over scripts');
+  fs.writeFileSync(path.join(dir, 'Zelda64Recomp'), Buffer.alloc(900 * 1024));
+  assert.equal(path.basename(await inst.findExecutable(dir, undefined, 'linux')), 'Zelda64Recomp', 'a plain binary is found');
+  fs.rmSync(dir, { recursive: true, force: true });
+  const assets = ['Fulton-1.99-Setup.msi', 'Fulton-1.99-linux-x64.AppImage', 'Fulton-1.99-linux-x64.tar.gz', 'Fulton-1.99-x64.dmg'].map((name) => ({ name, browser_download_url: `https://x/${name}` }));
+  const rel = { tag_name: 'v1.99', html_url: 'https://x', assets };
+  const fake = async () => ({ ok: true, status: 200, json: async () => rel });
+  const u = await update.checkForUpdate({ repo: 'a/b', current: '1.0', fetchImpl: fake, platform: 'linux', arch: 'x64' });
+  assert.equal(u.download, 'https://x/Fulton-1.99-linux-x64.AppImage');
+  assert.equal((await update.checkForUpdate({ repo: 'a/b', current: '1.0', fetchImpl: fake, platform: 'win32' })).download, 'https://x/Fulton-1.99-Setup.msi');
+});
+
+test('Drives: several install locations, a default, and where a game goes', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-drives-'));
+  const a = path.join(work, 'A'); const b = path.join(work, 'B'); const c = path.join(work, 'C');
+  for (const d of [a, b, c]) fs.mkdirSync(d);
+  const lib = await new Library({ dataDir: path.join(work, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'win32' }).load();
+  await lib.updateSettings({ libraryDir: a });
+  assert.deepEqual(lib.locations, [a], 'one location to start with');
+  await lib.addLibraryDir(b); await lib.addLibraryDir(b); await lib.addLibraryDir(a);
+  assert.deepEqual(lib.locations, [a, b], 'adding is idempotent and never lists the default twice');
+  // a new install goes where the player chose, and falls back to the default for an unknown place
+  assert.equal(lib.installTarget('zelda', b).target, path.join(b, 'Games', 'zelda'));
+  assert.equal(lib.installTarget('zelda', b).downloads, path.join(b, 'Downloads'), 'downloads sit on the same drive');
+  assert.equal(lib.installTarget('zelda', c).target, path.join(a, 'Games', 'zelda'), 'a place that is not on the list is ignored');
+  assert.equal(lib.installTarget('zelda').target, path.join(a, 'Games', 'zelda'));
+  // an update stays in the game's own folder, whichever drive was picked
+  lib.state.installed.zelda = { dir: path.join(b, 'Games', 'zelda'), exe: path.join(b, 'Games', 'zelda', 'z.exe') };
+  assert.equal(lib.installTarget('zelda', a).target, path.join(b, 'Games', 'zelda'));
+  assert.equal(lib.installTarget('zelda', a).root, b);
+  // a game linked from somewhere else counts as the default location
+  assert.equal(lib.rootOf(path.join(work, 'elsewhere', 'game')), a);
+  // drives(): free space, game counts, default flag
+  const ds = await lib.drives();
+  assert.equal(ds.length, 2);
+  assert.ok(ds[0].isDefault && !ds[1].isDefault);
+  assert.equal(ds[1].games, 1);
+  assert.ok(ds[0].free > 0 && ds[0].total >= ds[0].free);
+  // the default can't be removed; another can, and games there keep working
+  await assert.rejects(() => lib.removeLibraryDir(a), /default/i);
+  await lib.setDefaultLibraryDir(b);
+  assert.equal(lib.state.settings.libraryDir, b);
+  assert.deepEqual(lib.locations, [b, a], 'the old default stays on the list');
+  await lib.removeLibraryDir(a);
+  assert.deepEqual(lib.locations, [b]);
+  // converted ROM copies can live somewhere else
+  assert.equal(lib.dirs.roms, path.join(b, 'ROMs'));
+  await lib.updateSettings({ romCopyDir: c });
+  assert.equal(lib.dirs.roms, c);
+  fs.rmSync(work, { recursive: true, force: true });
+});
+
+test('Screenshots: the key, file names, window matching, and each game keeps its own folder', async () => {
+  const shots = require('../src/core/shots');
+  assert.equal(shots.DEFAULT_KEY, 'F8');
+  const ev = (code, o = {}) => ({ code, ...o });
+  assert.equal(shots.accelFromEvent(ev('F8')), 'F8');
+  assert.equal(shots.accelFromEvent(ev('F12', { shiftKey: true })), 'Shift+F12');
+  assert.equal(shots.accelFromEvent(ev('KeyS', { ctrlKey: true, altKey: true })), 'Control+Alt+S');
+  assert.equal(shots.accelFromEvent(ev('ScrollLock')), 'Scrolllock');
+  assert.equal(shots.accelFromEvent(ev('Insert')), 'Insert');
+  assert.equal(shots.accelFromEvent(ev('Numpad5')), 'num5');
+  assert.equal(shots.accelFromEvent(ev('ShiftLeft', { shiftKey: true })), null, 'a modifier alone is not a key');
+  assert.equal(shots.accelFromEvent(ev('Escape')), null, 'Escape cancels the picker');
+  assert.equal(shots.prettyAccel('Control+Scrolllock'), 'Ctrl + Scroll Lock');
+  assert.equal(shots.fileName('Zelda: 64 / Recomp', new Date(2026, 9, 31, 21, 36, 5)), 'Zelda 64 Recomp 2026-10-31 21-36-05.png');
+  const src = [{ name: 'Fulton Beta' }, { name: 'Zelda 64: Recompiled' }, { name: 'Discord' }];
+  assert.equal(shots.pickWindow(src, ['zelda 64: recompiled']).name, 'Zelda 64: Recompiled');
+  assert.equal(shots.pickWindow(src, ['fulton']), null, "Fulton's own window is never picked");
+  assert.equal(shots.pickWindow(src, ['mario']), null);
+
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-shots-'));
+  const lib = await new Library({ dataDir: path.join(work, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'win32' }).load();
+  await lib.updateSettings({ libraryDir: path.join(work, 'A'), libraryDirs: [path.join(work, 'B')] });
+  lib.state.installed.zelda = { dir: path.join(work, 'B', 'Games', 'zelda'), exe: 'x' };
+  assert.equal(lib.screenshotDir('zelda'), path.join(work, 'B', 'Screenshots', 'zelda'), 'screenshots sit on the game\'s drive');
+  assert.equal(lib.screenshotDir('other'), path.join(work, 'A', 'Screenshots', 'other'));
+  const f1 = await lib.saveScreenshot('zelda', Buffer.from([137, 80, 78, 71]));
+  const f2 = await lib.saveScreenshot('zelda', Buffer.from([137, 80, 78, 71]));
+  assert.notEqual(f1, f2, 'two in the same second never overwrite each other');
+  assert.equal((await lib.listScreenshots('zelda')).length, 2);
+  await assert.rejects(() => lib.deleteScreenshot('zelda', path.join(work, 'A', 'something.png')), /isn't one of/);
+  await assert.rejects(() => lib.deleteScreenshot('zelda', path.join(lib.screenshotDir('zelda'), '..', '..', 'x.png')), /isn't one of/);
+  await lib.deleteScreenshot('zelda', f1);
+  assert.equal((await lib.listScreenshots('zelda')).length, 1);
+  fs.rmSync(work, { recursive: true, force: true });
+});
+
+test('Screenshots: only real screenshots can be opened, copied, deleted or used as a background', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-shots2-'));
+  const lib = await new Library({ dataDir: path.join(work, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'win32' }).load();
+  await lib.updateSettings({ libraryDir: path.join(work, 'A'), libraryDirs: [path.join(work, 'B')] });
+  const f = await lib.saveScreenshot('some-game', Buffer.from([137, 80, 78, 71]));
+  assert.ok(lib.isScreenshotPath(f));
+  assert.ok(!lib.isScreenshotPath(path.join(work, 'A', 'notes.png')), 'a png outside Screenshots');
+  assert.ok(!lib.isScreenshotPath(path.join(work, 'A', 'Screenshots', '..', 'x.png')), 'no sneaking out with ..');
+  assert.ok(!lib.isScreenshotPath(path.join(work, 'elsewhere', 'Screenshots', 'g', 'x.png')), 'a Screenshots folder that is not one of ours');
+  assert.ok(!lib.isScreenshotPath(f.replace(/\.png$/, '.exe')));
+  const g2 = await lib.saveScreenshot('b-game', Buffer.from([1, 2]));
+  const all = await lib.listAllScreenshots();
+  assert.equal(all.length, 2);
+  assert.ok(all.every((x) => x.game && x.gameId && x.file));
+  fs.rmSync(work, { recursive: true, force: true });
+});
+
+test('A renamed library folder (Cartridge -> Fulton) is found again, and games keep working', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-rename-'));
+  const data = path.join(work, 'data');
+  const mk = async (dir) => new Library({ dataDir: data, catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'win32' }).load();
+  const oldRoot = path.join(work, 'Cartridge');
+  fs.mkdirSync(path.join(oldRoot, 'Games', 'zelda'), { recursive: true });
+  fs.writeFileSync(path.join(oldRoot, 'Games', 'zelda', 'z.exe'), 'x');
+  let lib = await mk();
+  await lib.updateSettings({ libraryDir: oldRoot });
+  lib.state.installed.zelda = { dir: path.join(oldRoot, 'Games', 'zelda'), exe: path.join(oldRoot, 'Games', 'zelda', 'z.exe'), tag: 'v1' };
+  lib.state.settings.backupDir = path.join(oldRoot, 'Backups');
+  lib.state.roms = [{ file: path.join(oldRoot, 'ROMs', 'Converted', 'a.z64') }, { file: path.join(work, 'elsewhere', 'b.z64') }];
+  await lib.save();
+  // the player renames the folder in Explorer
+  fs.renameSync(oldRoot, path.join(work, 'Fulton'));
+  lib = await mk();
+  const nu = path.join(work, 'Fulton');
+  assert.equal(lib.state.settings.libraryDir, nu, 'the library folder follows the rename');
+  assert.equal(lib.state.installed.zelda.dir, path.join(nu, 'Games', 'zelda'));
+  assert.equal(lib.state.installed.zelda.exe, path.join(nu, 'Games', 'zelda', 'z.exe'));
+  assert.equal(lib.state.settings.backupDir, path.join(nu, 'Backups'));
+  assert.equal(lib.state.roms[0].file, path.join(nu, 'ROMs', 'Converted', 'a.z64'));
+  assert.equal(lib.state.roms[1].file, path.join(work, 'elsewhere', 'b.z64'), 'files outside the library are left alone');
+  // picking the new folder by hand works too
+  fs.renameSync(nu, path.join(work, 'Games Library'));
+  const lib2 = await mk();
+  const n = await lib2.relocateLibrary(path.join(work, 'Games Library'));
+  assert.ok(n >= 3);
+  assert.equal(lib2.state.installed.zelda.exe, path.join(work, 'Games Library', 'Games', 'zelda', 'z.exe'));
+  fs.rmSync(work, { recursive: true, force: true });
+});
+
+test('Look for my games: games in Games/ come back after Fulton lost track of them', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-scan-'));
+  const cat = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'catalog', 'games.json'), 'utf8'));
+  const id = cat.games[0].id;
+  const lib = await new Library({ dataDir: path.join(work, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'win32' }).load();
+  const root = path.join(work, 'Fulton');
+  await lib.updateSettings({ libraryDir: root });
+  fs.mkdirSync(path.join(root, 'Games', id), { recursive: true });
+  fs.writeFileSync(path.join(root, 'Games', id, 'game.exe'), Buffer.alloc(2000));
+  fs.mkdirSync(path.join(root, 'Games', 'not-a-known-game'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'Games', 'not-a-known-game', 'x.exe'), 'x');
+  assert.equal(lib.state.installed[id], undefined);
+  assert.equal(await lib.scanLibraryForGames(), 1);
+  assert.equal(lib.state.installed[id].exe, path.join(root, 'Games', id, 'game.exe'));
+  assert.ok(lib.state.shelf[id]);
+  assert.equal(await lib.scanLibraryForGames(), 0, 'a second look finds nothing new');
+  fs.rmSync(work, { recursive: true, force: true });
+});
+
+test('Mac scan never walks into Photos, Music, Library or iCloud folders', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-macskip-'));
+  const lib = await new Library({ dataDir: path.join(work, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'darwin' }).load();
+  const top = path.join(work, 'home'); const seen = [];
+  for (const d of ['Music', 'Pictures/Photos Library.photoslibrary', 'Library/Mobile Documents', 'Applications', 'Stuff/Mario.app', 'Games/SNES']) fs.mkdirSync(path.join(top, d), { recursive: true });
+  for (const d of ['Music', 'Pictures/Photos Library.photoslibrary', 'Library/Mobile Documents', 'Applications', 'Stuff/Mario.app']) fs.writeFileSync(path.join(top, d, 'x.sfc'), Buffer.alloc(4096));
+  fs.writeFileSync(path.join(top, 'Games/SNES/real.sfc'), Buffer.alloc(4096));
+  const orig = fs.promises.readdir;
+  const files = await lib.collectRomFiles([top], []);
+  const found = files.map((f) => path.relative(top, f.file).split(path.sep).join('/'));
+  assert.deepEqual(found, ['Games/SNES/real.sfc']);
+  fs.rmSync(work, { recursive: true, force: true });
+});

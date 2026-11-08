@@ -1,10 +1,11 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, nativeTheme, net, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, clipboard, nativeTheme, net, Menu, globalShortcut, desktopCapturer, screen, nativeImage, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Library } = require('./src/core/library');
 const { Inspector } = require('./src/core/inspector');
 const { makeZip } = require('./src/core/zipwrite');
+const shotsLib = require('./src/core/shots');
 
 // ---------- log file (%APPDATA%\Fulton\fulton.log): what started, how long it took, and anything that froze the window
 let logFile = null;
@@ -127,7 +128,7 @@ app.whenReady().then(async () => {
 
   handle('state', () => lib.snapshot());
   handle('refresh', (force) => lib.refreshReleases({ force }));
-  handle('install', (id) => lib.install(id));
+  handle('install', (id, opts) => lib.install(id, opts || {}));
   handle('cancel', (id) => lib.cancel(id));
   handle('linkExe', async (id) => {
     const g = lib.game(id);
@@ -183,7 +184,11 @@ app.whenReady().then(async () => {
   handle('removeRomFolder', (dir) => lib.removeRomFolder(dir));
   handle('scanRomFolders', (full) => lib.scanRomFolders({ full }));
   handle('assignRom', (gameId, romId) => lib.assignRom(gameId, romId));
-  handle('settings', (patch) => lib.updateSettings(patch));
+  handle('settings', async (patch) => {
+    await lib.updateSettings(patch);
+    if ('screenshotKey' in patch || 'screenshots' in patch) syncShotKey(true);
+    return true;
+  });
   handle('checkAppUpdate', (force) => lib.checkAppUpdate({ force: !!force }));
   handle('credits', () => lib.credits());
   handle('romHelp', (id) => lib.romHelp(id));
@@ -210,19 +215,27 @@ app.whenReady().then(async () => {
     });
     return response === 0 ? lib.removeRomCopies() : null;
   });
+  // keep our own copy of the background so moving or deleting the original doesn't break it
+  const useBackgroundFile = async (src) => {
+    const fs = require('fs');
+    const dir = path.join(app.getPath('userData'), 'backgrounds');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { force: true });
+    const dest = path.join(dir, `background-${Date.now()}${path.extname(src).toLowerCase()}`);
+    fs.copyFileSync(src, dest);
+    await lib.updateSettings({ backgroundImage: dest });
+    return dest;
+  };
   handle('pickBackground', async () => {
     const res = await dialog.showOpenDialog(win, { title: 'Choose a background image', properties: ['openFile'],
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'] }] });
     if (res.canceled || !res.filePaths.length) return null;
-    const fs = require('fs');
-    const dir = path.join(app.getPath('userData'), 'backgrounds');
-    fs.mkdirSync(dir, { recursive: true });
-    // keep our own copy so moving or deleting the original doesn't break the background
-    for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { force: true });
-    const dest = path.join(dir, `background-${Date.now()}${path.extname(res.filePaths[0]).toLowerCase()}`);
-    fs.copyFileSync(res.filePaths[0], dest);
-    await lib.updateSettings({ backgroundImage: dest });
-    return dest;
+    return useBackgroundFile(res.filePaths[0]);
+  });
+  // one of your own screenshots as the background
+  handle('useBackground', async (file) => {
+    if (!lib.isScreenshotPath(file)) throw new Error("That isn't one of your screenshots.");
+    return useBackgroundFile(file);
   });
   handle('clearBackground', async () => {
     await lib.updateSettings({ backgroundImage: '' });
@@ -235,6 +248,29 @@ app.whenReady().then(async () => {
     const res = await dialog.showOpenDialog(win, { title: 'Where should games and ROMs live?', properties: ['openDirectory', 'createDirectory'] });
     if (res.canceled || !res.filePaths.length) return null;
     await lib.updateSettings({ libraryDir: res.filePaths[0] });
+    return res.filePaths[0];
+  });
+  // drives: where games are installed (several allowed), and where converted ROM copies go
+  handle('drives', () => lib.drives());
+  handle('addLibraryDir', async () => {
+    const res = await dialog.showOpenDialog(win, { title: 'Pick a drive or folder where games can be installed', properties: ['openDirectory', 'createDirectory'] });
+    if (res.canceled || !res.filePaths.length) return null;
+    await lib.addLibraryDir(res.filePaths[0]);
+    return res.filePaths[0];
+  });
+  // the library folder was renamed or moved: point Fulton at its new place and fix every saved path
+  handle('relocateLibrary', async () => {
+    const res = await dialog.showOpenDialog(win, { title: 'Where is your Fulton library folder now?', properties: ['openDirectory'] });
+    if (res.canceled || !res.filePaths.length) return null;
+    return lib.relocateLibrary(res.filePaths[0]);
+  });
+  handle('scanLibrary', () => lib.scanLibraryForGames());
+  handle('removeLibraryDir', (dir) => lib.removeLibraryDir(dir));
+  handle('setDefaultLibraryDir', (dir) => lib.setDefaultLibraryDir(dir));
+  handle('pickRomCopyDir', async () => {
+    const res = await dialog.showOpenDialog(win, { title: 'Where should converted ROM copies go?', properties: ['openDirectory', 'createDirectory'] });
+    if (res.canceled || !res.filePaths.length) return null;
+    await lib.updateSettings({ romCopyDir: res.filePaths[0] });
     return res.filePaths[0];
   });
   handle('openFolder', (id) => {
@@ -451,6 +487,72 @@ app.whenReady().then(async () => {
   lib.on('scan', (on) => { if (win && !win.isDestroyed()) win.webContents.send('scan', on); });
   const notice = (title, body, kind = 'ok') => { if (win && !win.isDestroyed()) win.webContents.send('notice', { title, body, kind }); };
   const gb = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`);
+
+  // ---- screenshots: one key, only while a game started from Fulton is running (so the key is never taken from your other programs) ----
+  let shotKeyOn = null;
+  let lastStarted = null;
+  function currentShotGame() {
+    if (lastStarted && lib.running.has(lastStarted)) return lastStarted;
+    const ids = [...lib.running.keys()];
+    return ids.length ? ids[ids.length - 1] : null;
+  }
+  function syncShotKey(force) {
+    const st = lib.state.settings;
+    const want = st.screenshots !== false && lib.running.size > 0 ? (st.screenshotKey || shotsLib.DEFAULT_KEY) : null;
+    if (!force && shotKeyOn === want) return;
+    if (shotKeyOn) { try { globalShortcut.unregister(shotKeyOn); } catch { /* already gone */ } shotKeyOn = null; }
+    if (!want) return;
+    let ok = false;
+    try { ok = globalShortcut.register(want, () => { takeScreenshot().catch((e) => log(`Screenshot failed: ${e.message}`)); }); } catch { ok = false; }
+    if (ok) shotKeyOn = want;
+    else notice("Couldn't use the screenshot key", `${shotsLib.prettyAccel(want)} is already used by another program. Pick a different key in Settings → Screenshots.`, 'warn');
+  }
+  async function takeScreenshot() {
+    const id = currentShotGame();
+    if (!id) return;
+    if (process.platform === 'darwin' && systemPreferences.getMediaAccessStatus('screen') === 'denied') {
+      notice('Fulton needs permission to take screenshots', 'Open System Settings → Privacy & Security → Screen Recording, switch Fulton on, then restart Fulton.', 'warn');
+      return;
+    }
+    const g = lib.game(id);
+    const inst = lib.state.installed[id] || {};
+    // the game's own window when a window title mentions it; otherwise the screen the mouse is on
+    const disp = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    let img = null;
+    try {
+      const wins = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 3840, height: 2160 } });
+      const exe = inst.exe ? path.basename(inst.exe).replace(/\.[a-z0-9]+$/i, '') : '';
+      const hit = shotsLib.pickWindow(wins, [g.port, g.title, exe]);
+      if (hit && hit.thumbnail && !hit.thumbnail.isEmpty()) img = hit.thumbnail;
+    } catch { /* fall back to the screen */ }
+    if (!img) {
+      const size = { width: Math.round(disp.size.width * disp.scaleFactor), height: Math.round(disp.size.height * disp.scaleFactor) };
+      const scr = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
+      const hit = scr.find((x) => String(x.display_id) === String(disp.id)) || scr[0];
+      if (hit && hit.thumbnail && !hit.thumbnail.isEmpty()) img = hit.thumbnail;
+    }
+    if (!img) { notice("Couldn't take a screenshot", 'The system wouldn\'t share the screen. On Linux with Wayland, allow screen sharing when asked.', 'bad'); return; }
+    let thumb = null;
+    try { thumb = img.resize({ width: 480, quality: 'good' }).toJPEG(80); } catch { /* no thumbnail */ }
+    const file = await lib.saveScreenshot(id, img.toPNG(), thumb);
+    if (lib.state.settings.screenshotSound !== false) shell.beep();
+    log(`Screenshot saved: ${file}`);
+    if (win && !win.isDestroyed()) win.webContents.send('shot', { gameId: id, game: g.port || g.title, file });
+  }
+  lib.on('started', (id) => { lastStarted = id; syncShotKey(); });
+  lib.on('exited', () => syncShotKey());
+  app.on('will-quit', () => { try { globalShortcut.unregisterAll(); } catch { /* closing anyway */ } });
+  handle('shots', (id) => lib.listScreenshots(id));
+  handle('allShots', () => lib.listAllScreenshots());
+  handle('deleteShot', (id, file) => lib.deleteScreenshot(id, file));
+  handle('copyShot', (file) => { if (!lib.isScreenshotPath(file)) throw new Error("That isn't one of your screenshots."); clipboard.writeImage(nativeImage.createFromPath(file)); return true; });
+  handle('openShot', (file) => { if (!lib.isScreenshotPath(file)) throw new Error("That isn't one of your screenshots."); return shell.openPath(file); });
+  handle('revealShot', (file) => { if (!lib.isScreenshotPath(file)) throw new Error("That isn't one of your screenshots."); shell.showItemInFolder(file); return true; });
+  handle('openShotsFolder', async (id) => {
+    const dir = id ? lib.screenshotDir(id) : path.join(lib.state.settings.libraryDir, 'Screenshots');
+    require('fs').mkdirSync(dir, { recursive: true });
+    return shell.openPath(dir);
+  });
   setTimeout(async () => {
     // updating from a version that copied every ROM: point at the originals and delete the copies (once)
     if (!lib.state.romCopiesMigrated) {

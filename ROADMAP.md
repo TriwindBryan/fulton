@@ -123,7 +123,9 @@ Scope decided: everything below, not a cut-down first version.
 4. **Supporters wall (opt-in):** names in About, read from a small JSON file in the repo.
 5. **Trust:** itch.io page (pay what you want), a "Report a problem" button (one zip with log and version), and look into Windows code signing (Microsoft Trusted Signing, about $10/month; check eligibility first). Fewer SmartScreen warnings means more installs, which is where donations come from.
 
-**1.57: Game drives.** Install games on more than one drive and move installed games between drives (including an external drive). Several games can be moved at once, to free up space.
+**1.57: Steam Deck / Linux (first version, built).** AppImage packaging, Linux game detection, Linux update check; needs a real Linux PC / Steam Deck test.
+
+**1.58: Game drives (in progress).** Done: several install drives, pick a drive per install, default drive, free space, converted-ROM-copy folder. Next: move installed games between drives (including an external drive), several at once, to free up space; ports that pick up your ROM on their own.
 - Settings: add and remove game locations; each shows free space. Installing asks where, with a default.
 - **Move to another drive** on a game, and on several selected games: copies the game folder, checks it, then removes the old one. Original stays if anything fails. Cancel is safe.
 - Care: update Add to Steam shortcuts and Fulton's records, keep save backups linked, no moving a running game, clear message when the drive is full, and a game on an unplugged drive shows "drive not connected" and returns when the drive does.
@@ -131,7 +133,9 @@ Scope decided: everything below, not a cut-down first version.
 
 **1.59: Games page.** Header with your own shelf stats and playtime chart, Normal/Large/Huge cards and a list view, Continue playing row, collections. (The Find more card at the end of the list is already in 1.55.)
 
-**1.58: Steam Deck / Linux.** Linux filter on Find more, AppImage packaging, launching natively.
+**1.59: Screenshots (built).** One key (F8 by default, changeable), a Screenshots page, use a screenshot as your background. Needs a real-PC test with real games (fullscreen capture).
+
+**Later (Linux): Linux filter on Find more, running Windows-only ports through Proton/Wine.**
 
 **Anytime:** Severed Chains launch.bat hang, first-run help for ports that need game files, pin a version per game (skip in Update all).
 

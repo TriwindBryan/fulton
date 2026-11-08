@@ -39,6 +39,10 @@ async function checkForUpdate({ repo, current, fetchImpl, token, platform = proc
     ? (assets.find((a) => /\.dmg$/i.test(a.name) && (arch === 'arm64' ? /arm64/i : /x64|intel|x86_64/i).test(a.name))
       || assets.find((a) => /\.dmg$/i.test(a.name) && /universal/i.test(a.name))
       || assets.find((a) => /\.dmg$/i.test(a.name)) || null)
+    : platform === 'linux'
+      // Linux: the AppImage (runs on its own, nothing to install), then the tar.gz
+      ? (assets.find((a) => /\.appimage$/i.test(a.name) && (arch === 'arm64' ? /arm64|aarch64/i : /^(?!.*(arm64|aarch64))/i).test(a.name))
+        || assets.find((a) => /\.tar\.gz$/i.test(a.name)) || null)
     : assets.find((a) => /\.msi$/i.test(a.name)) || assets.find((a) => /\.exe$/i.test(a.name)) || null;
   return {
     available: true,

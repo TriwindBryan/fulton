@@ -1,14 +1,14 @@
 {
   "name": "cartridge-launcher",
   "productName": "Fulton",
-  "version": "1.56.0",
+  "version": "1.62.0",
   "description": "Fulton: Your home base for recomps, decomps and remakes. A launcher for decompiled and recompiled retro game ports. Bring your ROMs, it does the rest.",
   "main": "main.js",
   "cartridge": {
     "kofi": "https://ko-fi.com/triwind",
     "repo": "TriwindBryan/fulton",
     "itch": "",
-    "label": "Beta 0.0023"
+    "label": "Beta 0.0029"
   },
   "license": "MIT",
   "scripts": {
@@ -17,7 +17,8 @@
     "dist": "electron-builder --win portable",
     "dist:dir": "electron-builder --win dir",
     "dist:msi": "electron-builder --win msi",
-    "dist:mac": "electron-builder --mac dmg --arm64 --x64"
+    "dist:mac": "electron-builder --mac dmg --arm64 --x64",
+    "dist:linux": "electron-builder --linux AppImage tar.gz --x64"
   },
   "devDependencies": {
     "electron": "^37.2.0",
@@ -87,6 +88,25 @@
       "artifactName": "Fulton-${version}-${arch}.dmg",
       "title": "Fulton ${version}",
       "icon": "build/icon.icns"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Game",
+      "synopsis": "Launcher for decomp, recomp and remake PC ports",
+      "executableName": "fulton",
+      "target": [
+        "AppImage",
+        "tar.gz"
+      ],
+      "artifactName": "Fulton-${version}-linux-${arch}.${ext}",
+      "desktop": {
+        "entry": {
+          "Name": "Fulton",
+          "Comment": "Launcher for decomp, recomp and remake PC ports",
+          "Categories": "Game;",
+          "Keywords": "games;recomp;decomp;launcher;"
+        }
+      }
     }
   },
   "author": "TriwindBryan",

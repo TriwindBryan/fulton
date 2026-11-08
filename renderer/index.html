@@ -34,6 +34,7 @@
         <span class="side-label">Library</span>
         <button class="tab" data-view="shelf"><i class="ico" aria-hidden="true">▦</i><span class="tl">Games</span> <span class="count" id="c-all"></span></button>
         <button class="tab" data-view="updates"><i class="ico" aria-hidden="true">↑</i><span class="tl">Updates</span> <span class="count new-count" id="c-upd" hidden></span></button>
+        <button class="tab" data-view="screenshots"><i class="ico" aria-hidden="true">▣</i><span class="tl">Screenshots</span> <span class="count" id="c-shots" hidden></span></button>
         <button class="tab" data-view="roms"><i class="ico" aria-hidden="true">◉</i><span class="tl">My ROMs</span> <span class="count" id="c-roms"></span></button>
         <span class="side-label">Discover</span>
         <button class="tab" data-view="discover"><i class="ico" aria-hidden="true">⌕</i><span class="tl">Find more</span> <span class="count new-count" id="c-new" hidden></span></button>
@@ -55,7 +56,6 @@
           <input id="search" type="search" placeholder="Search games" autocomplete="off">
         </label>
         <button class="btn3d small ghost" id="btn-customize" data-act="customize" title="Change colors, the background picture and the edge fades"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 3l2 2-9.5 9.5-3-3L19 3z"/><path d="M8.5 11.5C6 11.5 5 13 5 15c0 1.5-1 2.5-2 3 2.5 1 6 .5 7-2 .5-1 .5-2.5-1.5-4.5z" fill="currentColor" stroke="none"/></svg><span>Customize</span></button>
-        <button class="btn3d small ghost top-support" id="btn-support-top" title="Fulton is free. If you enjoy it, you can support it on Ko-fi."><span class="heart" aria-hidden="true">♥</span><span>Support</span></button>
       </header>
 
   <section class="hero" id="detail" aria-live="polite"></section>
@@ -77,6 +77,7 @@
 
   <div class="toasts" id="toasts" role="status"></div>
   <script src="../src/core/color.js"></script>
+  <script src="../src/core/shots.js"></script>
   <script src="sysfacts.js"></script>
   <script src="themes.js"></script>
   <script src="help.js"></script>

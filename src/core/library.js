@@ -20,6 +20,7 @@ const arcade = require('./arcade');
 const crypto = require('crypto');
 const update = require('./update');
 const disk = require('./disk');
+const shots = require('./shots');
 const platforms = require('./platforms');
 
 const DAT_BASE = 'https://raw.githubusercontent.com/libretro/libretro-database/master/metadat/';
@@ -48,7 +49,7 @@ class Library extends EventEmitter {
     } catch { this.version = ''; this.links = {}; }
     this.statePath = path.join(dataDir, 'state.json');
     this.state = {
-      settings: { libraryDir: defaultLibraryDir(), githubToken: '', extraCatalogUrl: '', romFolders: [], showMetacritic: false, welcomeSeen: false, checkUpdates: true, backgroundImage: '', backgroundDim: 55, backgroundClear: 45, heroBackdrop: 'wash', backupDir: '', autoBackup: true, steamGridKey: '' },
+      settings: { libraryDir: defaultLibraryDir(), screenshotKey: 'F8', screenshotSound: true, screenshots: true, libraryDirs: [], romCopyDir: '', askInstallDrive: true, githubToken: '', extraCatalogUrl: '', romFolders: [], showMetacritic: false, welcomeSeen: false, checkUpdates: true, backgroundImage: '', backgroundDim: 55, backgroundClear: 45, heroBackdrop: 'wash', backupDir: '', autoBackup: true, steamGridKey: '' },
       installed: {}, roms: [], romOverride: {}, releases: {}, userGames: [], scanIndex: {}, steam: {}, covers: {},
     };
     this.dats = {};
@@ -72,6 +73,11 @@ class Library extends EventEmitter {
       const releasesFor = `${this.version}|${this.platform}|${process.arch}`;
       if (this.state.releasesFor !== releasesFor) { this.state.releases = {}; this.state.releasesFor = releasesFor; }
     } catch { /* first run */ }
+    if (hadState) {
+      const moved = await this.healLibraryName().catch(() => 0);
+      const found = await this.healInstalls().catch(() => 0);
+      if (moved || found) await this.save();
+    }
     const base = JSON.parse(await fsp.readFile(this.catalogFile, 'utf8'));
     this.systems = base.systems;
     this.baseGames = base.games;
@@ -109,7 +115,245 @@ class Library extends EventEmitter {
 
   get dirs() {
     const root = this.state.settings.libraryDir;
-    return { root, games: path.join(root, 'Games'), roms: path.join(root, 'ROMs'), downloads: path.join(root, 'Downloads'), backups: this.state.settings.backupDir || path.join(root, 'Backups') };
+    return { root, games: path.join(root, 'Games'), roms: this.state.settings.romCopyDir || path.join(root, 'ROMs'), downloads: path.join(root, 'Downloads'), backups: this.state.settings.backupDir || path.join(root, 'Backups') };
+  }
+
+  // ---------- renamed or moved library folder ----------
+  /**
+   * Fulton remembers every game by its full path. When the player renames or moves the library folder
+   * (Cartridge -> Fulton), every saved path that starts with the old folder is pointed at the new one.
+   * Returns how many paths were changed.
+   */
+  relocatePaths(oldRoot, newRoot) {
+    const ci = this.platform !== 'linux';
+    const key = (p) => (ci ? p.toLowerCase() : p);
+    const o = key(path.resolve(oldRoot));
+    let count = 0;
+    const fix = (v) => {
+      if (typeof v !== 'string' || v.length < o.length) return v;
+      const k = key(v);
+      if (k === o) { count++; return newRoot; }
+      if (k.startsWith(o) && (v[o.length] === '/' || v[o.length] === '\\')) { count++; return newRoot + v.slice(o.length); }
+      return v;
+    };
+    const walk = (node) => {
+      if (Array.isArray(node)) { for (let i = 0; i < node.length; i++) { if (typeof node[i] === 'string') node[i] = fix(node[i]); else if (node[i] && typeof node[i] === 'object') walk(node[i]); } return; }
+      for (const k of Object.keys(node)) { const v = node[k]; if (typeof v === 'string') node[k] = fix(v); else if (v && typeof v === 'object') walk(v); }
+    };
+    walk(this.state);
+    return count;
+  }
+
+  /** The player picked where the library folder is now. */
+  async relocateLibrary(newRoot) {
+    const old = this.state.settings.libraryDir;
+    if (!newRoot || path.resolve(newRoot).toLowerCase() === path.resolve(old).toLowerCase()) return 0;
+    const n = this.relocatePaths(old, newRoot);
+    this.state.settings.libraryDir = newRoot;
+    await this.healInstalls();
+    await this.save();
+    const found = await this.scanLibraryForGames().catch(() => 0);
+    this.emitChange();
+    return n + found;
+  }
+
+  /** A game whose folder is gone but which sits in Games/<id> of a listed location gets found again. */
+  async healInstalls() {
+    let fixed = 0;
+    for (const [id, i] of Object.entries(this.state.installed || {})) {
+      if (!i || !i.dir || fs.existsSync(i.dir)) continue;
+      for (const loc of this.locations) {
+        const cand = path.join(loc, 'Games', id);
+        if (!fs.existsSync(cand)) continue;
+        const rel = i.exe && i.exe.toLowerCase().startsWith(i.dir.toLowerCase()) ? i.exe.slice(i.dir.length).replace(/^[\\/]+/, '') : null;
+        let exe = rel ? path.join(cand, rel) : null;
+        if (!exe || !fs.existsSync(exe)) exe = await inst.findExecutable(cand, (this.games.find((g) => g.id === id) || {}).exe, this.platform).catch(() => null);
+        if (!exe) continue;
+        i.dir = cand; i.exe = exe; fixed++;
+        break;
+      }
+    }
+    return fixed;
+  }
+
+  /**
+   * "Look for my games": every folder in Games/ of a listed location that belongs to a known game and isn't (or is no longer)
+   * recorded as installed gets recorded again, so games come back after a rename, a restore or a lost settings file.
+   */
+  async scanLibraryForGames() {
+    let found = 0;
+    for (const loc of this.locations) {
+      let names = [];
+      try { names = await fsp.readdir(path.join(loc, 'Games')); } catch { continue; }
+      for (const id of names) {
+        const g = this.games.find((x) => x.id === id);
+        if (!g) continue;
+        const dir = path.join(loc, 'Games', id);
+        const prev = this.state.installed[id];
+        if (prev && fs.existsSync(prev.dir) && fs.existsSync(prev.exe)) continue;
+        let st; try { st = await fsp.stat(dir); if (!st.isDirectory()) continue; } catch { continue; }
+        const exe = await inst.findExecutable(dir, g.exe, this.platform).catch(() => null);
+        if (!exe) continue;
+        this.state.installed[id] = {
+          ...(prev || {}), tag: (prev && prev.tag) || 'unknown', dir, exe, installedAt: (prev && prev.installedAt) || st.mtimeMs,
+          asset: (prev && prev.asset) || '', launchedOnce: prev ? prev.launchedOnce : true, playTime: (prev && prev.playTime) || 0, lastPlayed: (prev && prev.lastPlayed) || null,
+        };
+        (this.state.shelf || (this.state.shelf = {}))[id] = true;
+        found++;
+      }
+    }
+    if (found) { await this.save(); this.emitChange(); }
+    return found;
+  }
+
+  /** On start: the old "Cartridge" library folder was renamed to "Fulton" next to it. */
+  async healLibraryName() {
+    const old = this.state.settings.libraryDir;
+    if (!old || fs.existsSync(old) || !/^cartridge$/i.test(path.basename(old))) return 0;
+    const next = path.join(path.dirname(old), 'Fulton');
+    if (!fs.existsSync(next)) return 0;
+    const n = this.relocatePaths(old, next);
+    this.state.settings.libraryDir = next;
+    return n;
+  }
+
+  // ---------- screenshots ----------
+  /** Where a game's screenshots are kept: on the same drive as the game. */
+  screenshotDir(gameId) {
+    const i = this.state.installed[gameId];
+    const root = i && i.dir ? this.rootOf(i.dir) : this.state.settings.libraryDir;
+    return path.join(root, 'Screenshots', gameId.replace(/[^\w.-]+/g, '_'));
+  }
+
+  /** A small copy for the gallery (the full picture can be 4K). Sits in a hidden .thumbs folder next to the screenshots. */
+  thumbPath(file) { return path.join(path.dirname(file), '.thumbs', path.basename(file).replace(/\.png$/i, '.jpg')); }
+
+  async saveScreenshot(gameId, png, thumb) {
+    let g = null; try { g = this.game(gameId); } catch { /* a game that was removed from the shelf */ }
+    const dir = this.screenshotDir(gameId);
+    await fsp.mkdir(dir, { recursive: true });
+    const title = g ? g.port || g.title : gameId;
+    let file = path.join(dir, shots.fileName(title));
+    for (let n = 2; fs.existsSync(file); n++) file = path.join(dir, shots.fileName(title).replace(/\.png$/, ` (${n}).png`));
+    await fsp.writeFile(file, png);
+    if (thumb) { try { await fsp.mkdir(path.dirname(this.thumbPath(file)), { recursive: true }); await fsp.writeFile(this.thumbPath(file), thumb); } catch { /* the gallery falls back to the picture itself */ } }
+    return file;
+  }
+
+  /** Newest first. */
+  async listScreenshots(gameId) {
+    const dir = this.screenshotDir(gameId);
+    let names = [];
+    try { names = await fsp.readdir(dir); } catch { return []; }
+    const out = [];
+    for (const n of names) {
+      if (!/\.png$/i.test(n)) continue;
+      try { const st = await fsp.stat(path.join(dir, n)); out.push({ file: path.join(dir, n), thumb: fs.existsSync(this.thumbPath(path.join(dir, n))) ? this.thumbPath(path.join(dir, n)) : path.join(dir, n), name: n, time: st.mtimeMs, size: st.size }); } catch { /* gone */ }
+    }
+    return out.sort((a, b) => b.time - a.time);
+  }
+
+  /** True only for a .png inside a Screenshots folder of one of the library locations. */
+  isScreenshotPath(file) {
+    const f = path.resolve(String(file || '')).toLowerCase();
+    return /\.png$/.test(f) && this.locations.some((l) => f.startsWith(path.resolve(l, 'Screenshots').toLowerCase() + path.sep));
+  }
+
+  /** Every screenshot on every drive, newest first, with the game each belongs to. */
+  async listAllScreenshots() {
+    const out = [];
+    for (const root of this.locations) {
+      let games = [];
+      try { games = await fsp.readdir(path.join(root, 'Screenshots')); } catch { continue; }
+      for (const gid of games) {
+        let names = [];
+        try { names = await fsp.readdir(path.join(root, 'Screenshots', gid)); } catch { continue; }
+        let title = gid;
+        const known = this.games.find((x) => x.id.replace(/[^\w.-]+/g, '_') === gid);
+        if (known) title = known.port || known.title;
+        for (const n of names) {
+          if (!/\.png$/i.test(n)) continue;
+          try { const st = await fsp.stat(path.join(root, 'Screenshots', gid, n)); out.push({ file: path.join(root, 'Screenshots', gid, n), thumb: fs.existsSync(this.thumbPath(path.join(root, 'Screenshots', gid, n))) ? this.thumbPath(path.join(root, 'Screenshots', gid, n)) : path.join(root, 'Screenshots', gid, n), name: n, gameId: known ? known.id : gid, game: title, time: st.mtimeMs, size: st.size }); } catch { /* gone */ }
+        }
+      }
+    }
+    return out.sort((a, b) => b.time - a.time);
+  }
+
+  /** Only ever deletes a .png inside that game's own Screenshots folder. */
+  async deleteScreenshot(gameId, file) {
+    const dirs = [this.screenshotDir(gameId), ...this.locations.map((l) => path.join(l, 'Screenshots', gameId.replace(/[^\w.-]+/g, '_')))].map((d) => path.resolve(d).toLowerCase() + path.sep);
+    const f = path.resolve(file);
+    if (!dirs.some((d) => f.toLowerCase().startsWith(d)) || !/\.png$/i.test(f)) throw new Error("That isn't one of this game's screenshots.");
+    await fsp.rm(f, { force: true });
+    await fsp.rm(this.thumbPath(f), { force: true }).catch(() => {});
+    return true;
+  }
+
+  // ---------- drives (install locations) ----------
+  /** Every place games can be installed: the default library folder first, then any drives or folders added. */
+  get locations() {
+    const st = this.state.settings;
+    const out = [];
+    const seen = new Set();
+    for (const d of [st.libraryDir, ...(st.libraryDirs || [])]) {
+      if (!d) continue;
+      const key = path.resolve(d).toLowerCase();
+      if (!seen.has(key)) { seen.add(key); out.push(d); }
+    }
+    return out;
+  }
+
+  /** The location an installed game's folder belongs to (the default when it's somewhere else, like a game the player linked). */
+  rootOf(dir) {
+    const here = path.resolve(dir).toLowerCase() + path.sep;
+    for (const l of this.locations) if (here.startsWith(path.resolve(l).toLowerCase() + path.sep)) return l;
+    return this.state.settings.libraryDir;
+  }
+
+  /** Where a game goes: an update stays in its own folder; a new install goes in the chosen location (the default when none is chosen or it isn't on the list). */
+  installTarget(gameId, root) {
+    const prev = this.state.installed[gameId];
+    const base = prev && prev.dir ? this.rootOf(prev.dir) : (root && this.locations.some((l) => path.resolve(l).toLowerCase() === path.resolve(root).toLowerCase()) ? root : this.state.settings.libraryDir);
+    return { root: base, target: prev && prev.dir ? prev.dir : path.join(base, 'Games', gameId), downloads: path.join(base, 'Downloads') };
+  }
+
+  /** The drives list for Settings and the "where should it go?" picker: free space, how many games are on each, whether it's connected. */
+  async drives() {
+    const out = [];
+    for (const dir of this.locations) {
+      const sp = await disk.space(dir);
+      const here = path.resolve(dir).toLowerCase() + path.sep;
+      const games = Object.values(this.state.installed || {}).filter((i) => i && i.dir && (path.resolve(i.dir).toLowerCase() + path.sep).startsWith(here)).length;
+      out.push({ dir, isDefault: path.resolve(dir).toLowerCase() === path.resolve(this.state.settings.libraryDir).toLowerCase(), connected: fs.existsSync(dir) || fs.existsSync(path.parse(path.resolve(dir)).root) && sp.free != null, free: sp.free, total: sp.total, games });
+    }
+    return out;
+  }
+
+  async addLibraryDir(dir) {
+    if (!dir) return this.locations;
+    if (!this.locations.some((l) => path.resolve(l).toLowerCase() === path.resolve(dir).toLowerCase())) {
+      await this.updateSettings({ libraryDirs: [...(this.state.settings.libraryDirs || []), dir] });
+    }
+    return this.locations;
+  }
+
+  /** Stop listing a location. Games already installed there stay where they are and keep working. The default can't be removed. */
+  async removeLibraryDir(dir) {
+    const key = path.resolve(dir).toLowerCase();
+    if (key === path.resolve(this.state.settings.libraryDir).toLowerCase()) throw new Error("This is your default location. Make another one the default first, then remove this one.");
+    await this.updateSettings({ libraryDirs: (this.state.settings.libraryDirs || []).filter((l) => path.resolve(l).toLowerCase() !== key) });
+    return this.locations;
+  }
+
+  /** Make a location the default for new installs (the old default stays on the list). */
+  async setDefaultLibraryDir(dir) {
+    const st = this.state.settings;
+    const key = path.resolve(dir).toLowerCase();
+    if (key === path.resolve(st.libraryDir).toLowerCase()) return this.locations;
+    const rest = [st.libraryDir, ...(st.libraryDirs || [])].filter((l) => path.resolve(l).toLowerCase() !== key);
+    await this.updateSettings({ libraryDir: dir, libraryDirs: rest });
+    return this.locations;
   }
 
   get games() {
@@ -199,7 +443,7 @@ class Library extends EventEmitter {
         romMatch: match ? { romId: match.rom.id, level: match.level, reason: match.reason, label: match.rom.datName || match.rom.originalName, file: match.rom.file } : null,
       };
     });
-    return { systems: this.systems, games, roms, scanning: !!this.scanning, settings: { ...this.state.settings, githubToken: this.state.settings.githubToken ? '••••' : '', steamGridKey: this.state.settings.steamGridKey ? '••••' : '' }, dirs: this.dirs, platform: this.platform, version: this.version || '', label: (this.links || {}).label || '', links: this.links || {}, appUpdate: (this.state.appUpdate || {}).data || null, changelog: path.join(path.dirname(path.dirname(this.catalogFile)), 'CHANGELOG.md') };
+    return { systems: this.systems, games, roms, scanning: !!this.scanning, settings: { ...this.state.settings, githubToken: this.state.settings.githubToken ? '••••' : '', steamGridKey: this.state.settings.steamGridKey ? '••••' : '' }, dirs: this.dirs, locations: this.locations, platform: this.platform, version: this.version || '', label: (this.links || {}).label || '', links: this.links || {}, appUpdate: (this.state.appUpdate || {}).data || null, changelog: path.join(path.dirname(path.dirname(this.catalogFile)), 'CHANGELOG.md') };
   }
 
   emitChange() { this.emit('change'); }
@@ -218,6 +462,7 @@ class Library extends EventEmitter {
       for (const [k, c] of Object.entries(this.state.covers || {})) if (c.none) delete this.state.covers[k];
     }
     this.state.settings = { ...this.state.settings, ...next };
+    if ('libraryDir' in next || 'libraryDirs' in next) await this.healInstalls().catch(() => 0);
     await this.save();
     if ('extraCatalogUrl' in patch) await this.load();
     this.emitChange();
@@ -278,8 +523,12 @@ class Library extends EventEmitter {
   async collectRomFiles(paths, tmpDirs, { skipKnown = false, onArchive = null } = {}) {
     const out = [];
     const index = this.state.scanIndex || (this.state.scanIndex = {});
-    const ownDirs = [this.dirs.roms, this.dirs.games, this.dirs.downloads].map((d) => path.resolve(d).toLowerCase());
+    const ownDirs = [this.dirs.roms, ...this.locations.flatMap((l) => [path.join(l, 'ROMs'), path.join(l, 'Games'), path.join(l, 'Downloads')])].map((d) => path.resolve(d).toLowerCase());
     const SKIP_DIRS = /^(\$recycle\.bin|system volume information|windows|program files( \(x86\))?|programdata|appdata|node_modules|\.git)$/i;
+    // On a Mac, walking into these makes macOS ask "Fulton would like to access your Photos / Music / iCloud Drive / other apps' data",
+    // and none of them can hold a game, so a scan never goes in unless the person picked that exact folder.
+    const MAC_SKIP = /^(library|music|pictures|movies|applications|\.trash|\.spotlight-v100|\.fseventsd|\.documentrevisions-v100|mobile documents|cloudstorage|icloud drive( \(archive\))?)$|\.(photoslibrary|musiclibrary|tvlibrary|app|bundle|framework|photolibrary|imovielibrary|fcpbundle|logicx)$/i;
+    const skipByName = (name) => SKIP_DIRS.test(name) || (this.platform === 'darwin' && MAC_SKIP.test(name));
     const stamp = (st) => `${st.size}:${Math.round(st.mtimeMs)}`;
     // a .cue already covers its .bin tracks, so don't list those separately
     const dropTracks = (list) => {
@@ -291,7 +540,7 @@ class Library extends EventEmitter {
       try { st = await fsp.stat(p); } catch { return; }
       if (st.isDirectory()) {
         if (depth > 12) return;
-        if (!archive && (ownDirs.includes(path.resolve(p).toLowerCase()) || (depth > 0 && SKIP_DIRS.test(path.basename(p))))) return;
+        if (!archive && (ownDirs.includes(path.resolve(p).toLowerCase()) || (depth > 0 && skipByName(path.basename(p))))) return;
         let entries = [];
         try { entries = await fsp.readdir(p); } catch { return; }
         // an extracted PS3 / Vita / Wii U / Xbox game is one game, not hundreds of loose files
@@ -433,7 +682,7 @@ class Library extends EventEmitter {
 
   /** Free space where Fulton writes (library, temporary files), for warnings and Check my setup. */
   async diskStatus() {
-    const places = [['library', this.dirs.root], ['temp', os.tmpdir()]];
+    const places = [...this.locations.map((l) => ['library', l]), ['temp', os.tmpdir()]];
     const out = [];
     const seen = new Set();
     for (const [what, dir] of places) {
@@ -469,7 +718,8 @@ class Library extends EventEmitter {
     }
     // 2. leftovers Fulton can clear: downloads, temporary files, unpacked ROMs for games, old copies
     const busy = this.jobs.size > 0;
-    const dl = busy ? 0 : await this.folderBytes(this.dirs.downloads);
+    let dl = 0;
+    if (!busy) for (const l of this.locations) dl += await this.folderBytes(path.join(l, 'Downloads'));
     if (dl > 50e6) issues.push({ id: 'downloads', level: 'warn', title: `${fmt(dl)} of leftover downloads`, detail: 'Downloads from installs that were cancelled or failed. They are safe to delete.', fix: { id: 'clear-downloads', label: 'Delete leftover downloads' } });
     let tmpBytes = 0;
     if (!this.scanning) {
@@ -516,8 +766,10 @@ class Library extends EventEmitter {
     switch (what) {
       case 'clear-downloads':
         if (this.jobs.size) throw new Error('Wait for the install that is running to finish.');
-        await fsp.rm(this.dirs.downloads, { recursive: true, force: true });
-        await fsp.mkdir(this.dirs.downloads, { recursive: true });
+        for (const l of this.locations) {
+          await fsp.rm(path.join(l, 'Downloads'), { recursive: true, force: true });
+          await fsp.mkdir(path.join(l, 'Downloads'), { recursive: true }).catch(() => {});
+        }
         return true;
       case 'clear-temp':
         if (this.scanning) throw new Error('Wait for the ROM scan to finish.');
@@ -771,7 +1023,7 @@ class Library extends EventEmitter {
     this.emit('job', id, job);
   }
 
-  async install(gameId) {
+  async install(gameId, opts = {}) {
     if (this.jobs.has(gameId)) return;
     const g = this.game(gameId);
     const controller = new AbortController();
@@ -785,17 +1037,23 @@ class Library extends EventEmitter {
       const { asset, tag } = rel.data;
       if (!asset) throw new Error(`This release has no ${{ darwin: 'Mac', linux: 'Linux' }[this.platform] || 'Windows'} download yet. Check the project page.`);
 
+      // where it goes: an update stays in its folder; a new install goes in the drive the player picked (or the default)
+      const where = this.installTarget(gameId, opts.root);
+      try { await fsp.mkdir(where.downloads, { recursive: true }); } catch (e) {
+        const gone = new Error(`Can't reach ${where.root}. If it's on an external drive, plug it in and try again.`);
+        gone.friendly = true; throw gone;
+      }
       // the download, its unpacked files and the installed game can all be on the drive at once
-      if (asset.size) await disk.ensureSpace(this.dirs.downloads, asset.size * 4 + 200e6);
-      archive = path.join(this.dirs.downloads, `${gameId}-${asset.name}`);
+      if (asset.size) await disk.ensureSpace(where.downloads, asset.size * 4 + 200e6);
+      archive = path.join(where.downloads, `${gameId}-${asset.name}`);
       await inst.download(asset.url, archive, {
         signal: controller.signal, digest: asset.digest,
         onProgress: (p, got, total) => this.setJob(gameId, { phase: 'Downloading', progress: p, got, total, cancel: true, abort: controller }),
       });
 
       this.setJob(gameId, { phase: 'Unpacking', progress: null });
-      const target = path.join(this.dirs.games, gameId);
-      const staging = path.join(this.dirs.downloads, `${gameId}-staging`);
+      const target = where.target;
+      const staging = path.join(where.downloads, `${gameId}-staging`);
       await fsp.rm(staging, { recursive: true, force: true });
       if (/\.(exe|appimage)$/i.test(asset.name)) {
         await fsp.mkdir(staging, { recursive: true });
@@ -854,7 +1112,7 @@ class Library extends EventEmitter {
       if (archive) fsp.rm(archive, { force: true }).catch(() => {});
       this.emitChange();
       if (e.name === 'AbortError') return { ok: false, cancelled: true };
-      return { ok: false, error: disk.friendly(e, this.dirs.games).message };
+      return { ok: false, error: disk.friendly(e, this.installTarget(gameId, opts.root).root).message };
     }
   }
 
@@ -953,6 +1211,7 @@ class Library extends EventEmitter {
       this.emit('exited', gameId);
     });
     child.unref();
+    this.emit('started', gameId);
     i.launchedOnce = true;
     await this.save();
     this.emitChange();

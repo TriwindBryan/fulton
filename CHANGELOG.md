@@ -2,6 +2,53 @@
 
 From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
 
+## Beta 0.0029 (1.62) - One Support button
+
+- The Support button in the top-right of the header is gone; the ♥ Support button at the bottom of the sidebar stays.
+
+## Beta 0.0028 (1.61) - Fewer Mac permission pop-ups
+
+- **Mac: no more "Fulton would like to access your Photos / Music / iCloud Drive / data from other apps" pop-ups.** When a ROM scan walked through a big folder (your home folder, for example), it wandered into Photos, Music, Library and iCloud folders, and macOS asked about each. Scans now skip those folders, and app and library bundles, which can't hold games. A ROM folder you pick yourself is still scanned in full.
+- If you still see a "network volume" pop-up, that is a ROM folder you added that lives on a NAS or network drive; choose Allow once and it won't ask again.
+
+## Beta 0.0027 (1.60) - Renamed folders are found again
+
+- **Renamed or moved your library folder? Your games come back.** Fulton used to remember the exact old folder, so after renaming Cartridge to Fulton the shelf looked empty. It now fixes those saved locations on its own.
+- New **Look for my games** button (Settings > Drives): scans every drive on your list and puts any installed game it finds back on the shelf.
+- New **I renamed or moved my folder** button: pick the new folder and Fulton repoints everything to it, then looks for games.
+- Adding a folder in Settings now also repairs installs automatically.
+
+## Beta 0.0026 (build 1.59) — in progress
+
+**Screenshots**
+- **One key takes a screenshot while you play.** The default is **F8**, and you can change it to any key in Settings → Screenshots (click the key button, then press the one you want; Esc cancels). It only works while a game started from Fulton is running, so Fulton never takes the key from your other programs. A click sound plays when one is taken (you can turn it off), and a small card in Fulton offers View and Show.
+- **The game's own window** is captured when Fulton can find it, otherwise the screen your mouse is on. Some games that run in exclusive fullscreen can come out black; run them borderless or windowed.
+- **A Screenshots page** in the sidebar shows every picture, newest first, with a Game filter. Click one to see it big, Copy it, Open it, Show it in its folder, **use it as your background**, or Delete it (only ever your screenshots).
+- **Saved on the game's drive,** in a Screenshots folder (one folder per game), so they follow the games across your drives. Small preview copies keep the page fast.
+- **Customize → From my screenshots** picks one as your background.
+- Each game's page has a **Screenshots** link that opens the page filtered to that game.
+- Mac asks for Screen Recording permission the first time. On Linux with Wayland, the system may ask before it shares the screen.
+
+## Beta 0.0025 (build 1.58) — in progress
+
+**Game drives**
+- **Install games on more than one drive.** Settings → **Drives** lists every place games can be installed, with free space, a bar showing how full it is, and how many games are on it. **Add a drive or folder** adds one (an internal drive, an external drive, any folder).
+- **Pick the drive when you install.** With more than one drive listed, installing a new game asks where it should go. **Don't ask again** (or the Settings checkbox) always uses the default drive instead.
+- **Default drive.** **Make default** chooses where new games go when you don't pick. **Remove** takes a drive off the list; games already installed there keep working and stay put.
+- **Updates stay where the game is.** An update never moves a game to another drive.
+- **Downloads use the same drive.** The download and unpacking happen on the drive you picked, so a small drive doesn't fill up when the game is going to a big one. If a drive is unplugged, Fulton says so instead of failing in the middle.
+- **Converted ROM copies** have their own folder setting (Settings → Converted ROM copies), for the rare game that needs a converted copy of your ROM. Your own ROM files are never moved, changed or deleted.
+- Check my setup now looks at free space and leftover downloads on every listed drive.
+- Not in this build yet: moving an installed game from one drive to another.
+
+## Beta 0.0024 (build 1.57) — in progress
+
+**Linux and Steam Deck (first version)**
+- A Linux build: `Build Linux (AppImage).sh` makes `Fulton-<version>-linux-x64.AppImage` (and a `.tar.gz`). Or run from source with `Start Fulton.sh`.
+- Fulton finds Linux games better: AppImages, plain binaries, `.x86_64` files, and games that start from a `.sh` script.
+- Fulton's own update check now offers the Linux AppImage on Linux.
+- Not tested on a real Linux PC or Steam Deck yet. Windows-only ports still say they don't have a Linux download.
+
 ## Beta 0.0023 (build 1.56) — in progress
 
 **Make it yours, and find your way around**

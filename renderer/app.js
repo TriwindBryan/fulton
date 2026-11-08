@@ -281,7 +281,6 @@ function renderHeader() {
     if (up) pill.textContent = 'Update available';
   }
   $('#btn-support').hidden = !(S.links || {}).kofi;
-  $('#btn-support-top').hidden = !(S.links || {}).kofi;
   if (up && !ui.updateToasted) {
     ui.updateToasted = true;
     toast('A new Fulton is out!', "Your games, ROMs and saves carry over. Download it and run the installer.", 'ok', [['Download', () => api.openUrl(up.download || up.url)], ["What's new", () => api.openUrl(up.url)]]);
@@ -821,7 +820,7 @@ function renderDetail() {
         <button class="btn-link" data-act="open-repo">Project page</button>
         ${g.site ? '<button class="btn-link" data-act="open-site">Website</button>' : ''}
         ${g.release && g.release.url ? '<button class="btn-link" data-act="open-notes">Release notes</button>' : ''}
-        ${g.installed ? `<span>${g.installed.manual ? 'Your own copy' : `Installed ${esc(g.installed.tag)}`}</span><button class="btn-link" data-act="open-folder">Open folder</button><button class="btn-link danger" data-act="uninstall">${g.installed.manual ? 'Remove from Fulton' : 'Uninstall'}</button>` : ''}
+        ${g.installed ? `<span>${g.installed.manual ? 'Your own copy' : `Installed ${esc(g.installed.tag)}`}</span><button class="btn-link" data-act="open-folder">Open folder</button><button class="btn-link" data-act="game-shots">Screenshots</button><button class="btn-link danger" data-act="uninstall">${g.installed.manual ? 'Remove from Fulton' : 'Uninstall'}</button>` : ''}
         ${g.installed && !g.inSteam ? '<button class="btn-link steam" data-act="add-steam">＋ Add to Steam</button>' : ''}
         ${g.inSteam ? '<span class="in-steam">✓ In Steam</span><button class="btn-link danger" data-act="remove-steam">Remove from Steam</button>' : ''}
         <button class="btn-link danger" data-act="remove-shelf" title="${g.installed ? 'Uninstalls the game (after asking), then takes it off your shelf' : 'Takes it off your shelf; add it back any time from Find more'}">Remove from shelf</button>
@@ -1619,7 +1618,7 @@ function renderCustomize() {
         <div class="bg-row">
           <div class="bg-thumb" style="${s.backgroundImage ? `background-image:url('${fileUrl(s.backgroundImage).replace(/'/g, '%27')}')` : ''}">${s.backgroundImage ? '' : '<em>Default wallpaper</em>'}</div>
           <div class="bg-controls">
-            <div class="inline"><button class="btn3d small cyan" data-act="pick-bg">Choose image</button>${s.backgroundImage ? '<button class="btn-link" data-act="clear-bg">Back to default</button>' : ''}</div>
+            <div class="inline"><button class="btn3d small cyan" data-act="pick-bg">Choose image</button><button class="btn3d small" data-act="pick-bg-shot">From my screenshots</button>${s.backgroundImage ? '<button class="btn-link" data-act="clear-bg">Back to default</button>' : ''}</div>
             <label class="bg-dim"><span>Darken</span><input type="range" id="set-dim" min="0" max="90" step="5" value="${s.backgroundDim ?? 55}"><b id="dim-val">${s.backgroundDim ?? 55}%</b></label>
             <label class="bg-dim"><span>See-through</span><input type="range" id="set-clear" min="0" max="100" step="5" value="${s.backgroundClear ?? 45}"><b id="clear-val">${s.backgroundClear ?? 45}%</b></label>
             <small>PNG, JPG, WebP or GIF. Darken keeps text readable on bright pictures; See-through lets more of the picture show behind the panels.</small>
@@ -1637,9 +1636,20 @@ function renderSettings() {
     ${panelHead('Settings')}
     <div class="form">
       <div class="callout">Colors, your background picture and the edge fades have their own page. <button class="btn-link" data-act="customize">Open Customize</button></div>
-      <label class="field"><span>Library folder</span>
-        <div class="inline"><input value="${esc(s.libraryDir)}" readonly><button class="btn3d small purple" data-act="pick-libdir">Change</button><button class="btn-link" data-act="open-lib">Open</button></div>
-        <small>Games install into its Games folder. Your ROMs stay where they are; this folder only holds a converted copy when a game needs one. Games you've already installed stay where they are.</small></label>
+      <div class="field"><span>Drives (where games are installed)</span>
+        <div id="drives-box" class="drives"><small>Looking at your drives…</small></div>
+        <div class="inline" style="margin-top:8px"><button class="btn3d small purple" data-act="drive-add">Add a drive or folder</button><button class="btn-link" data-act="open-lib">Open default</button><button class="btn3d small" data-act="scan-library">Look for my games</button><button class="btn-link" data-act="library-moved">I renamed or moved my folder</button></div>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="set-ask-drive" ${s.askInstallDrive === false ? '' : 'checked'}> <span>Ask me which drive to use when I install a game (only when more than one is listed)</span></label>
+        <small>Each drive gets its own Games and Downloads folders. Updates stay on the drive the game is already on. Your own ROM files are never moved or changed.</small></div>
+      <div class="field"><span>Converted ROM copies</span>
+        <div class="inline"><input value="${esc(S.dirs.roms)}" readonly><button class="btn3d small purple" data-act="pick-romcopy-dir">Change</button>${s.romCopyDir ? '<button class="btn-link" data-act="reset-romcopy-dir">Use default</button>' : ''}</div>
+        <small>Only used when a game needs a converted copy of your ROM (a different format, or one pulled out of an archive). Your original ROMs stay where they are.</small></div>
+      <div class="field"><span>Screenshots</span>
+        <label class="check"><input type="checkbox" id="set-shots" ${s.screenshots === false ? '' : 'checked'}> <span>Take a screenshot with one key while a game is running</span></label>
+        <div class="inline" style="margin:8px 0"><span>Key</span><button class="btn3d small purple" id="shot-key" data-act="shot-key">${esc(window.cartShots.prettyAccel(s.screenshotKey || window.cartShots.DEFAULT_KEY))}</button>${(s.screenshotKey || 'F8') !== 'F8' ? '<button class="btn-link" data-act="shot-key-reset">Use F8</button>' : ''}</div>
+        <label class="check"><input type="checkbox" id="set-shotsound" ${s.screenshotSound === false ? '' : 'checked'}> <span>Play a click sound when one is taken</span></label>
+        <div class="inline" style="margin-top:8px"><button class="btn-link" data-act="view-shots">See all screenshots</button><button class="btn-link" data-act="open-shots-folder">Open the screenshots folder</button></div>
+        <small>Click the key button, then press the key you want (Esc cancels). The key only works while a game started from Fulton is running, so it never takes the key from your other programs. Pictures are saved on the same drive as the game.</small></div>
       <label class="field"><span>GitHub token (optional)</span>
         <div class="inline"><input id="set-token" type="password" placeholder="ghp_…" value="${esc(s.githubToken)}"><button class="btn3d small purple" data-act="save-token">Save</button></div>
         <small>Without a token GitHub allows 60 checks an hour. A classic token with no scopes raises that to 5,000.</small></label>
@@ -1678,9 +1688,128 @@ function renderSettings() {
       <div class="callout">Fulton never downloads ROMs or game data. It installs open-source ports from their official GitHub releases and uses ROMs you dump from games you own.</div>
     </div>
   </div>`;
+  loadDrives();
 }
 
 const fmtSize = (n) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`);
+// ---------------------------------------------------------------- screenshots
+let shotsCache = [];
+const shotDate = (ms) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+async function renderScreenshots() {
+  $('#view').innerHTML = `<div class="panel" id="shots-page">${panelHead('Screenshots')}<div id="shots-body"><p class="sub">Looking for your screenshots…</p></div></div>`;
+  shotsCache = await api.allShots().catch(() => []);
+  if (ui.view === 'screenshots' && $('#shots-page')) drawScreenshots();
+}
+function shotsFiltered() { return shotsCache.filter((x) => !ui.shotGame || x.gameId === ui.shotGame); }
+function drawScreenshots() {
+  const body = $('#shots-body'); if (!body) return;
+  const games = [...new Map(shotsCache.map((x) => [x.gameId, x.game]))].sort((a, b) => a[1].localeCompare(b[1]));
+  const list = shotsFiltered();
+  const key = window.cartShots.prettyAccel((S.settings.screenshotKey) || window.cartShots.DEFAULT_KEY);
+  body.innerHTML = `<div class="shots-bar">
+      <label>Game <select id="shot-filter"><option value="">All games (${shotsCache.length})</option>${games.map(([id, name]) => `<option value="${esc(id)}"${ui.shotGame === id ? ' selected' : ''}>${esc(name)} (${shotsCache.filter((x) => x.gameId === id).length})</option>`).join('')}</select></label>
+      <span class="grow"></span><button class="btn-link" data-act="open-shots-folder">Open folder</button>
+    </div>
+    ${list.length ? `<div class="shots-grid">${list.map((x, i) => `<button class="shot-card" data-shot="${i}" title="${esc(x.name)}"><img src="${fileUrl(x.thumb || x.file)}" alt="" loading="lazy" decoding="async"><span>${esc(x.game)}</span><small>${esc(shotDate(x.time))}</small></button>`).join('')}</div>`
+      : `<div class="empty-shots"><b>No screenshots yet</b><p>Start a game from Fulton and press <kbd>${esc(key)}</kbd> to take one. They show up here, and you can use any of them as your background in Customize. You can change the key in Settings.</p></div>`}`;
+}
+function showShot(i) {
+  const list = shotsFiltered(); const x = list[i]; if (!x) return;
+  ui.shotView = list; ui.shotIdx = i;
+  const m = $('#modal');
+  m.innerHTML = `<div class="modal tip shot-view" role="dialog" aria-modal="true">
+    <img class="shot-big" src="${fileUrl(x.file)}" alt="">
+    <div class="shot-meta"><b>${esc(x.game)}</b> <span>${esc(shotDate(x.time))}</span></div>
+    <div class="modal-actions shot-actions">
+      <button class="btn3d small" data-shot-act="prev"${i > 0 ? '' : ' disabled'}>‹</button><button class="btn3d small" data-shot-act="next"${i < list.length - 1 ? '' : ' disabled'}>›</button>
+      <button class="btn3d small cyan" data-shot-act="copy">Copy</button><button class="btn3d small" data-shot-act="open">Open</button><button class="btn3d small" data-shot-act="reveal">Show in folder</button>
+      <button class="btn3d small pink" data-shot-act="bg">Use as background</button><button class="btn-link danger" data-shot-act="delete">Delete</button><button class="btn-link" data-tip-close="1">Close</button>
+    </div></div>`;
+  m.hidden = false;
+}
+async function shotAction(a) {
+  const list = ui.shotView || []; const x = list[ui.shotIdx];
+  if (a === 'prev') return showShot(Math.max(0, ui.shotIdx - 1));
+  if (a === 'next') return showShot(Math.min(list.length - 1, ui.shotIdx + 1));
+  if (!x) return;
+  if (a === 'copy') { await guard(() => api.copyShot(x.file)); return toast('Copied', 'Paste it anywhere.', 'ok'); }
+  if (a === 'open') return api.openShot(x.file);
+  if (a === 'reveal') return api.revealShot(x.file);
+  if (a === 'bg') { const p = await guard(() => api.useBackground(x.file)); if (p) { S.settings.backgroundImage = p; applyBackground(); toast('Background changed', 'Using your screenshot.', 'ok'); } return; }
+  if (a === 'delete') {
+    if (!window.confirm('Delete this screenshot? This cannot be undone.')) return;
+    await guard(() => api.deleteShot(x.gameId, x.file));
+    shotsCache = shotsCache.filter((y) => y.file !== x.file);
+    closeTip(); drawScreenshots();
+    toast('Screenshot deleted');
+  }
+}
+async function pickBackgroundFromShots() {
+  const list = await api.allShots().catch(() => []);
+  if (!list.length) return toast('No screenshots yet', `Start a game from Fulton and press ${window.cartShots.prettyAccel(S.settings.screenshotKey || 'F8')} to take one.`, 'warn');
+  ui.shotPick = list;
+  const m = $('#modal');
+  m.innerHTML = `<div class="modal tip shot-pick" role="dialog" aria-modal="true"><div class="help-topic"><h2>Pick a screenshot for your background</h2>
+    <div class="shots-grid small">${list.map((x, i) => `<button class="shot-card" data-shot-bg="${i}" title="${esc(x.game)}"><img src="${fileUrl(x.thumb || x.file)}" alt="" loading="lazy" decoding="async"><span>${esc(x.game)}</span></button>`).join('')}</div></div>
+    <div class="modal-actions"><button class="btn-link" data-tip-close="1">Cancel</button></div></div>`;
+  m.hidden = false;
+}
+function recordShotKey(btn) {
+  btn.textContent = 'Press a key… (Esc cancels)'; btn.disabled = true;
+  const done = (accel) => {
+    window.removeEventListener('keydown', onKey, true);
+    btn.disabled = false;
+    if (accel) { S.settings.screenshotKey = accel; guard(() => api.settings({ screenshotKey: accel })); toast('Screenshot key set', `${window.cartShots.prettyAccel(accel)} takes a screenshot while a game is running.`, 'ok'); }
+    renderSettings();
+  };
+  const onKey = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.code === 'Escape') return done(null);
+    const a = window.cartShots.accelFromEvent(e);
+    if (a) done(a);
+  };
+  window.addEventListener('keydown', onKey, true);
+}
+api.onShot && api.onShot((d) => {
+  toast('Screenshot saved', d.game, 'ok', [['View', () => { shotsCache = []; setView('screenshots', { shotGame: d.gameId }); }], ['Show', () => api.revealShot(d.file)]]);
+  if (ui.view === 'screenshots') renderScreenshots();
+});
+
+// ---------------------------------------------------------------- drives
+const driveFree = (d) => (d.free == null ? 'size unknown' : `${fmtSize(d.free)} free${d.total ? ` of ${fmtSize(d.total)}` : ''}`);
+const driveBar = (d) => (d.free != null && d.total ? `<span class="drive-bar"><i style="width:${Math.max(2, Math.min(100, Math.round((1 - d.free / d.total) * 100)))}%" class="${d.free < 5e9 ? 'low' : ''}"></i></span>` : '');
+async function loadDrives() {
+  const box = $('#drives-box');
+  if (!box) return;
+  const list = await api.drives().catch(() => null);
+  if (!$('#drives-box') || !list) return;
+  ui.drives = list;
+  box.innerHTML = list.map((d, i) => `<div class="drive-row${d.connected ? '' : ' gone'}">
+      <div class="drive-main"><b class="drive-path">${esc(d.dir)}</b>
+        <span class="drive-meta">${d.isDefault ? '<span class="tag-chip">Default</span>' : ''}${d.connected ? '' : '<span class="tag-chip warn">Not connected</span>'}${driveFree(d)} · ${d.games} game${d.games === 1 ? '' : 's'}</span>${driveBar(d)}</div>
+      <div class="drive-btns">${d.isDefault ? '' : `<button class="btn-link" data-drive-default="${i}">Make default</button><button class="btn-link" data-drive-remove="${i}">Remove</button>`}<button class="btn-link" data-drive-open="${i}">Open</button></div>
+    </div>`).join('');
+}
+
+/** Which drive should this game go on? Shown for a new install when more than one location is listed. */
+async function showDrivePicker(g) {
+  const list = await api.drives().catch(() => []);
+  ui.drives = list; ui.pendingDriveGame = g.id;
+  const m = $('#modal');
+  m.innerHTML = `<div class="modal tip drive-pick" role="dialog" aria-modal="true">
+    <div class="help-topic">
+      <h2>Where should ${esc(g.port)} go?</h2>
+      <p class="lead">Pick a drive. Updates will stay on the same one.</p>
+      <div class="drives">${list.map((d, i) => `<button class="drive-choice${d.isDefault ? ' rec' : ''}" data-drive-go="${i}" ${d.connected ? '' : 'disabled'}>
+        <b>${esc(d.dir)}</b><span>${d.isDefault ? 'Default · ' : ''}${d.connected ? driveFree(d) : 'Not connected'}</span>${driveBar(d)}</button>`).join('')}</div>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="drive-dont-ask"> <span>Don't ask again, always use the default</span></label>
+    </div>
+    <div class="modal-actions"><button class="btn-link" data-tip-close="1">Cancel</button></div>
+  </div>`;
+  m.hidden = false;
+  setTimeout(() => { const b = m.querySelector('.drive-choice.rec:not([disabled])') || m.querySelector('.drive-choice:not([disabled])'); if (b) b.focus(); }, 30);
+}
+
 async function loadRomCopies() {
   const box = $('#rom-copies');
   if (!box) return;
@@ -1774,6 +1903,7 @@ function render() {
     renderShelf();
   } else if (ui.view === 'roms') renderRoms();
   else if (ui.view === 'updates') renderUpdates();
+  else if (ui.view === 'screenshots') { if (!$('#shots-page')) renderScreenshots(); }
   else if (ui.view === 'discover') { if (!$('#disc-form')) renderDiscover(); }
   else if (ui.view === 'customize') { if (!$('#appearance')) renderCustomize(); }
   else if (ui.view === 'settings') { if (!$('#set-token')) { renderSettings(); loadRomCopies(); } }
@@ -1904,11 +2034,12 @@ async function onAction(act, g, opts = {}) {
     case 'favorite': await guard(() => api.setFavorite(g.id, !g.favorite)); break;
     case 'install': {
       if (g.updateAvailable && !opts.confirmed && g.installed) { showUpdateNotes(g); break; }
-      const res = await guard(() => api.install(g.id));
+      if (!g.installed && !opts.root && (S.locations || []).length > 1 && S.settings.askInstallDrive !== false) { await showDrivePicker(g); break; }
+      const res = await guard(() => api.install(g.id, opts.root ? { root: opts.root } : {}));
       if (res && res.ok) setTimeout(maybeAskSupport, 2500);
       if (res && res.ok) toast(`${g.port} is installed!`, g.romMatch ? 'Hit Play to start.' : asksForRom(g) ? 'Hit Play. The game asks for your ROM the first time.' : 'Load its ROM, then hit Play.', 'ok');
       else if (res && res.error) {
-        const folder = `${S.dirs.games}${isMac() || S.platform === 'linux' ? '/' : '\\'}${g.id}`;
+        const folder = `${opts.root || S.dirs.root}${isMac() || S.platform === 'linux' ? '/' : '\\'}Games${isMac() || S.platform === 'linux' ? '/' : '\\'}${g.id}`;
         toast(`Couldn't install ${g.port}`, res.error, 'bad', [['Open folder', () => api.openPath(folder)]]);
       }
       break;
@@ -1929,6 +2060,7 @@ async function onAction(act, g, opts = {}) {
     }
     case 'uninstall': await guard(() => api.uninstall(g.id)); break;
     case 'open-folder': await guard(() => api.openFolder(g.id)); break;
+    case 'game-shots': setView('screenshots', { shotGame: g.id }); break;
     case 'open-repo': api.openUrl(`https://github.com/${g.repo}`); break;
     case 'link-exe': {
       const linked = await guard(() => api.linkExe(g.id));
@@ -2015,6 +2147,29 @@ document.addEventListener('click', async (e) => {
     if (saved) return setTheme({ preset: 'custom', base: saved.base, custom: saved.custom, saved });
     return setTheme({ preset: 'custom', base: cur.preset || window.THEMES[0].id, custom: {} });
   }
+  if (t.dataset.shot !== undefined) return showShot(Number(t.dataset.shot));
+  if (t.dataset.shotAct) return shotAction(t.dataset.shotAct);
+  if (t.dataset.shotBg !== undefined) {
+    const x = (ui.shotPick || [])[Number(t.dataset.shotBg)]; closeTip();
+    if (!x) return;
+    const p = await guard(() => api.useBackground(x.file));
+    if (p) { S.settings.backgroundImage = p; applyBackground(); toast('Background changed', 'Using your screenshot.', 'ok'); if (ui.view === 'customize') renderCustomize(); }
+    return;
+  }
+  if (t.dataset.driveGo) {
+    const d = (ui.drives || [])[Number(t.dataset.driveGo)]; const game = S.games.find((x) => x.id === ui.pendingDriveGame);
+    const dont = $('#drive-dont-ask') && $('#drive-dont-ask').checked;
+    closeTip();
+    if (dont) { S.settings.askInstallDrive = false; api.settings({ askInstallDrive: false }); }
+    return d && game ? onAction('install', game, { root: d.dir }) : undefined;
+  }
+  if (t.dataset.driveDefault) { const d = (ui.drives || [])[Number(t.dataset.driveDefault)]; if (d) { await guard(() => api.setDefaultLibraryDir(d.dir)); renderSettings(); } return; }
+  if (t.dataset.driveRemove) {
+    const d = (ui.drives || [])[Number(t.dataset.driveRemove)];
+    if (d) { await guard(() => api.removeLibraryDir(d.dir)); toast('Removed from the list', d.games ? `The ${d.games} game${d.games === 1 ? '' : 's'} installed there still work and stay where they are.` : '', 'ok'); renderSettings(); }
+    return;
+  }
+  if (t.dataset.driveOpen) { const d = (ui.drives || [])[Number(t.dataset.driveOpen)]; if (d) api.openPath(d.dir); return; }
   if (t.dataset.updateGo) { closeTip(); const g = S.games.find((x) => x.id === t.dataset.updateGo); return g ? onAction('install', g, { confirmed: true }) : undefined; }
   if (t.dataset.helpTip) return showTip(t.dataset.helpTip);
   if (t.dataset.helpGo) return openHelp(t.dataset.helpGo);
@@ -2110,7 +2265,16 @@ document.addEventListener('click', async (e) => {
   if (act === 'check-setup') { if (!setupState.running) runSetupCheck(); return; }
   if (act === 'forget-missing') { const n = await guard(() => api.forgetMissing()); if (n) toast(`Removed ${n.toLocaleString()} missing ROM${n > 1 ? 's' : ''} from the list`, '', 'ok'); return; }
   if (act === 'rescan') { t.textContent = 'Scanning…'; const r = await guard(() => api.scanRomFolders(true)); showRomReport(r || [], true); return render(); }
-  if (act === 'pick-libdir') { await guard(() => api.pickLibraryDir()); return renderSettings(); }
+  if (act === 'library-moved') { const n = await guard(() => api.relocateLibrary()); if (n !== null && n !== undefined) toast('Library folder updated', n ? `Fixed ${n.toLocaleString()} saved path${n === 1 ? '' : 's'}. Your games should be back.` : 'Nothing needed changing.', 'ok'); return renderSettings(); }
+  if (act === 'scan-library') { t.disabled = true; t.textContent = 'Looking…'; const n = await guard(() => api.scanLibrary()); toast(n ? `Found ${n} game${n === 1 ? '' : 's'}` : 'No new games found', n ? 'They are back on your shelf and ready to play.' : 'Fulton looked in every drive on the list. If your folder was renamed or moved, use "I renamed or moved my folder".', n ? 'ok' : 'warn'); return renderSettings(); }
+  if (act === 'view-shots') return setView('screenshots', { shotGame: '' });
+  if (act === 'open-shots-folder') return api.openShotsFolder(ui.view === 'screenshots' && ui.shotGame ? ui.shotGame : '');
+  if (act === 'shot-key-reset') { S.settings.screenshotKey = 'F8'; await guard(() => api.settings({ screenshotKey: 'F8' })); return renderSettings(); }
+  if (act === 'shot-key') return recordShotKey(t);
+  if (act === 'pick-bg-shot') return pickBackgroundFromShots();
+  if (act === 'drive-add') { const d = await guard(() => api.addLibraryDir()); if (d) toast('Drive added', 'You can pick it when you install a game, or make it the default.', 'ok'); return renderSettings(); }
+  if (act === 'pick-romcopy-dir') { await guard(() => api.pickRomCopyDir()); return renderSettings(); }
+  if (act === 'reset-romcopy-dir') { await guard(() => api.settings({ romCopyDir: '' })); return renderSettings(); }
   if (act === 'pick-backup-dir') { await guard(() => api.pickBackupDir()); return renderSettings(); }
   if (act === 'open-all-backups') return api.openBackups();
   if (act === 'backup-all') {
@@ -2157,6 +2321,10 @@ document.addEventListener('click', async (e) => {
 });
 
 document.addEventListener('change', async (e) => {
+  if (e.target.id === 'set-ask-drive') { S.settings.askInstallDrive = e.target.checked; await guard(() => api.settings({ askInstallDrive: e.target.checked })); return; }
+  if (e.target.id === 'set-shots') { S.settings.screenshots = e.target.checked; await guard(() => api.settings({ screenshots: e.target.checked })); return; }
+  if (e.target.id === 'set-shotsound') { S.settings.screenshotSound = e.target.checked; await guard(() => api.settings({ screenshotSound: e.target.checked })); return; }
+  if (e.target.id === 'shot-filter') { ui.shotGame = e.target.value; return drawScreenshots(); }
   if (e.target.id === 'set-autobackup') { await guard(() => api.settings({ autoBackup: e.target.checked })); return; }
   if (e.target.id === 'set-meta') { await guard(() => api.settings({ showMetacritic: e.target.checked })); return; }
   if (e.target.id === 'set-newdays') { const n = Number(e.target.value); S.settings.newWindowDays = n; if (disc.range && NEW_DAYS.includes(disc.range)) disc.range = n; renderHeader(); await guard(() => api.settings({ newWindowDays: n })); loadCommunity(); return; }
@@ -2353,7 +2521,6 @@ $('#search').addEventListener('input', (e) => {
   render();
 });
 $('#btn-support').addEventListener('click', () => { if ((S.links || {}).kofi) api.openUrl(S.links.kofi); });
-$('#btn-support-top').addEventListener('click', () => { if ((S.links || {}).kofi) api.openUrl(S.links.kofi); });
 $('#update-pill').addEventListener('click', () => { if (S.appUpdate) api.openUrl(S.appUpdate.download || S.appUpdate.url); });
 
 /** Keep the About page's update line current without re-rendering the credits. */
@@ -2408,7 +2575,7 @@ document.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------- controller (Xbox / PlayStation / Switch Pro via the Gamepad API)
 // Standard mapping: 0 A/Cross, 1 B/Circle, 2 X/Square, 3 Y/Triangle, 4 LB, 5 RB, 6 LT, 7 RT, 8 View/Select, 9 Menu/Start, 12-15 D-pad.
 const pad = { held: {}, next: {}, connected: false };
-const TABS = ['shelf', 'updates', 'roms', 'discover', 'customize', 'settings', 'help'];
+const TABS = ['shelf', 'updates', 'screenshots', 'roms', 'discover', 'customize', 'settings', 'help'];
 const FILTERS = ['all', 'available', 'installed', 'ready', 'needs'];
 
 // Controllers report their buttons in one of two ways:
