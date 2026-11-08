@@ -1,7 +1,7 @@
-# Builds Cartridge for Mac and Windows on GitHub's machines.
+# Builds Fulton for Windows, Mac and Linux on GitHub's machines.
 # - Publishing a release on GitHub (tag v1.xx) builds both and attaches the files to that release.
 # - "Run workflow" on the Actions tab makes a test build; download it from the run's "Artifacts".
-name: Build Cartridge
+name: Build Fulton
 
 on:
   release:
@@ -15,17 +15,18 @@ jobs:
   mac:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npm test
       - name: Build the Mac apps (Apple Silicon and Intel)
         run: npx electron-builder --mac dmg --arm64 --x64 --publish never
+        # no Apple Developer ID yet: package.json signs ad-hoc (identity "-"), which is free
       - uses: actions/upload-artifact@v4
         with:
-          name: cartridge-mac
+          name: fulton-mac
           path: dist/*.dmg
       - name: Attach to the release
         if: github.event_name == 'release'
@@ -36,8 +37,8 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
@@ -46,7 +47,7 @@ jobs:
         run: npx electron-builder --win portable msi --publish never
       - uses: actions/upload-artifact@v4
         with:
-          name: cartridge-windows
+          name: fulton-windows
           path: |
             dist/*.msi
             dist/*-Portable.exe
@@ -57,3 +58,28 @@ jobs:
           files: |
             dist/*.msi
             dist/*-Portable.exe
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - name: Build the Linux AppImage and tar.gz
+        run: npx electron-builder --linux AppImage tar.gz --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fulton-linux
+          path: |
+            dist/*.AppImage
+            dist/*.tar.gz
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.AppImage
+            dist/*.tar.gz
