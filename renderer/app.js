@@ -1561,11 +1561,14 @@ function renderDiscoverList() {
     : pc && pc.failed
       ? `<p class="os-note warn">${pc.failed} port${pc.failed > 1 ? 's' : ''} couldn't be checked yet (GitHub didn't answer), so ${pc.failed > 1 ? 'they don\'t' : 'it doesn\'t'} show Windows or Mac yet. <button class="btn-link" data-act="recheck-platforms">Check again</button></p>`
       : '';
+  const listWarn = (communityData.warn || []).length
+    ? `<p class="os-note warn">${communityData.warn.join(' and ')}'s list couldn't be loaded just now, so some ports may be missing from this page. Fulton will try again in about an hour. <button class="btn-link" data-act="community-refresh">Try again now</button></p>`
+    : '';
   const unknown = disc.range ? all.filter((c) => !c.released && c.get !== 'build').length : 0;
   const dateNote = disc.range && (unknown || running) ? `<p class="os-note">Release dates are still being collected for ${unknown} port${unknown === 1 ? '' : 's'}, so the list can grow in a minute or two.</p>` : '';
   const counter = `<div class="disc-count"><b>${items.length.toLocaleString()}</b> port${items.length === 1 ? '' : 's'} ${discActive() ? 'match' : 'in the list'}${all.some((c) => c.isNew) ? '<button class="btn-link" data-act="disc-seen" title="Clear the NEW tags">Mark all as seen</button>' : ''}</div>`;
   try { localStorage.setItem('fulton.disc', JSON.stringify({ sort: disc.sort, size: disc.size })); } catch { /* fine */ }
-  listEl.innerHTML = counter + checking + dateNote + (items.length
+  listEl.innerHTML = counter + listWarn + checking + dateNote + (items.length
     ? `<div class="cgrid ${disc.size === 0 ? 'sz-list' : 'sz-var'}" style="${disc.size > 0 ? sizeVars(disc.size) : ''}">${shown.map((c) => {
         const sys = S.systems[c.system] || {};
         const tip = [c.desc, c.needs && `Needs: ${c.needs}`].filter(Boolean).join('\n\n');

@@ -195,30 +195,93 @@ function candidateFromEntry(e, folder, stats) {
   };
 }
 
-/** Candidates from a { path: yamlText } map of the repository's data files. */
-function candidatesFromFiles(files) {
+/** Candidates from parsed entries [{ folder, e }] and Recompendium's stats.json (GitHub details per repo). */
+function candidatesFromEntries(entries, stats) {
   const out = [];
   const seen = new Set();
-  // stats.json: GitHub details per repo, including its latest release ("version"), refreshed by Recompendium daily
-  let stats = null;
-  const statsFile = Object.keys(files).find((p) => /src\/data\/stats\.json$/.test(p));
-  if (statsFile) { try { stats = JSON.parse(files[statsFile]); } catch { stats = null; } }
-  for (const [p, text] of Object.entries(files)) {
-    const m = p.match(/src\/data\/(recomps|ports)\/[^/]+\.ya?ml$/);
-    if (!m) continue;
-    let e;
-    try { e = parseYaml(text); } catch { continue; }
-    const c = candidateFromEntry(e, m[1], stats);
+  for (const { folder, e } of entries) {
+    const c = candidateFromEntry(e, folder, stats);
     if (c && !seen.has(c.key)) { seen.add(c.key); out.push(c); }
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function fetchRecompendium() {
-  const res = await fetch(ARCHIVE_URL, { headers: { 'User-Agent': 'Fulton-Launcher' } });
+/** Candidates from a { path: yamlText } map of the repository's data files. */
+function candidatesFromFiles(files) {
+  let stats = null;
+  const statsFile = Object.keys(files).find((p) => /src\/data\/stats\.json$/.test(p));
+  if (statsFile) { try { stats = JSON.parse(files[statsFile]); } catch { stats = null; } }
+  const entries = [];
+  for (const [p, text] of Object.entries(files)) {
+    const m = p.match(/src\/data\/(recomps|ports)\/[^/]+\.ya?ml$/);
+    if (!m) continue;
+    try { entries.push({ folder: m[1], e: parseYaml(text) }); } catch { /* skip a file that doesn't parse */ }
+  }
+  return candidatesFromEntries(entries, stats);
+}
+
+const API_TREE = `https://api.github.com/repos/${REPO}/git/trees/main?recursive=1`;
+const RAW_BASE = `https://raw.githubusercontent.com/${REPO}/main/`;
+const HEADERS = { 'User-Agent': 'Fulton-Launcher' };
+const DATA_FILE = /^src\/data\/(?:(recomps|ports)\/[^/]+\.ya?ml|stats\.json)$/;
+
+async function getText(url, ms = 25000) {
+  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(ms) });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.text();
+}
+
+/**
+ * The light way: the repository now carries thousands of cover pictures (the whole download is ~26 MB, it used to be a few
+ * hundred KB), so ask GitHub for the file list and read only the ~1,300 small data files. `cache` ({ entries: { path: { sha, e } } })
+ * remembers files by their hash, so later refreshes only fetch what changed.
+ */
+async function fetchLight(cache) {
+  const tree = JSON.parse(await getText(API_TREE));
+  if (!tree || !Array.isArray(tree.tree) || tree.truncated) throw new Error('file list incomplete');
+  const wanted = tree.tree.filter((n) => n.type === 'blob' && DATA_FILE.test(n.path));
+  if (!wanted.some((n) => /^src\/data\/(recomps|ports)\//.test(n.path))) throw new Error('no data files found');
+  const entries = cache.entries || (cache.entries = {});
+  const keep = new Set(wanted.map((n) => n.path));
+  for (const k of Object.keys(entries)) if (!keep.has(k)) delete entries[k];
+  const todo = wanted.filter((n) => !/stats\.json$/.test(n.path) && !(entries[n.path] && entries[n.path].sha === n.sha));
+  let failed = 0, next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const n = todo[next++];
+      try {
+        const e = parseYaml(await getText(RAW_BASE + n.path.split('/').map(encodeURIComponent).join('/')));
+        entries[n.path] = { sha: n.sha, folder: n.path.split('/')[2], e };
+      } catch { failed++; }
+    }
+  };
+  await Promise.all(Array.from({ length: 12 }, worker));
+  if (failed > Math.max(20, todo.length * 0.05)) throw new Error(`${failed} of ${todo.length} files didn't download`);
+  let stats = null;
+  try { stats = JSON.parse(await getText(RAW_BASE + 'src/data/stats.json')); } catch { stats = cache.stats || null; }
+  if (stats) cache.stats = stats;
+  return candidatesFromEntries(Object.values(entries).map((x) => ({ folder: x.folder, e: x.e })), cache.stats || null);
+}
+
+/** The old way (one big download), kept as the fallback. */
+async function fetchArchive() {
+  const res = await fetch(ARCHIVE_URL, { headers: HEADERS });
   if (!res.ok) throw new Error(`Couldn't load Recompendium (${res.status}).`);
   const buf = Buffer.from(await res.arrayBuffer());
   return candidatesFromFiles(untarGz(buf, (p) => /\/src\/data\/((recomps|ports)\/[^/]+\.ya?ml|stats\.json)$/.test(p)));
 }
 
-module.exports = { howToGet, REPO, ARCHIVE_URL, SOURCE_PAGE, LICENSE, CONSOLES, parseYaml, untarGz, candidateFromEntry, candidatesFromFiles, fetchRecompendium };
+async function fetchRecompendium(cache = {}, log = () => {}) {
+  try {
+    const out = await fetchLight(cache);
+    log(`Recompendium: ${out.length} ports (light download)`);
+    return out;
+  } catch (e) {
+    log(`Recompendium light download failed (${e.message}); trying the full download`);
+  }
+  const out = await fetchArchive();
+  log(`Recompendium: ${out.length} ports (full download)`);
+  return out;
+}
+
+module.exports = { howToGet, REPO, ARCHIVE_URL, SOURCE_PAGE, LICENSE, CONSOLES, parseYaml, untarGz, candidateFromEntry, candidatesFromEntries, candidatesFromFiles, fetchRecompendium };

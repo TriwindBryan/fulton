@@ -122,11 +122,16 @@ function mergeCandidates(quiver, others) {
 }
 
 /** Download every list: the Quiver community index plus Recompendium. Either one alone is enough. */
-async function fetchCommunity() {
-  const [q, r] = await Promise.allSettled([fetchQuiver(), recompendium.fetchRecompendium()]);
+async function fetchCommunity({ recompendiumCache = {}, log = () => {} } = {}) {
+  const [q, r] = await Promise.allSettled([fetchQuiver(), recompendium.fetchRecompendium(recompendiumCache, log)]);
   if (q.status === 'rejected' && r.status === 'rejected') throw q.reason;
+  const warn = [];
+  if (q.status === 'rejected') { warn.push('Quiver'); log(`Quiver list failed: ${q.reason && q.reason.message}`); }
+  if (r.status === 'rejected') { warn.push('Recompendium'); log(`Recompendium list failed: ${r.reason && r.reason.message}`); }
   const extras = EXTRAS.map((e) => ({ ...recompendium.candidateFromEntry(e, e.category ? 'ports' : 'recomps'), list: 'Fulton', from: 'cartridge' }));
-  return mergeCandidates(q.status === 'fulfilled' ? q.value : [], [...(r.status === 'fulfilled' ? r.value : []), ...extras]);
+  const items = mergeCandidates(q.status === 'fulfilled' ? q.value : [], [...(r.status === 'fulfilled' ? r.value : []), ...extras]);
+  items.warn = warn; // which list couldn't be loaded, if any: shown on Find more instead of failing quietly
+  return items;
 }
 
 /** Turn a community entry into a Fulton game entry. */

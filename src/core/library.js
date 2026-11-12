@@ -1271,17 +1271,24 @@ class Library extends EventEmitter {
   /** All community-listed ports (cached for a day so browsing works offline). */
   async communityList({ force = false } = {}) {
     const cache = path.join(this.dataDir, 'community.json');
+    const rcCache = path.join(this.dataDir, 'recompendium-cache.json');
     let cached = null;
     try { cached = JSON.parse(await fsp.readFile(cache, 'utf8')); } catch { /* none yet */ }
-    if (cached && cached.v !== 3) cached = null; // older caches lack Recompendium or the download/build labels
-    if (!force && cached && Date.now() - cached.fetchedAt < 24 * 3600 * 1000) return this.markCommunity(cached.items);
+    if (cached && cached.v !== 4) cached = null; // older caches lack the Find more warning or the newer list formats
+    const withWarn = (items, warn) => ({ ...this.markCommunity(items), warn: warn || [] });
+    if (!force && cached && Date.now() - cached.fetchedAt < 24 * 3600 * 1000) return withWarn(cached.items, cached.warn);
     try {
-      const items = await community.fetchCommunity();
-      await fsp.writeFile(cache, JSON.stringify({ v: 3, fetchedAt: Date.now(), items }));
-      return this.markCommunity(items);
+      let rc = {};
+      try { rc = JSON.parse(await fsp.readFile(rcCache, 'utf8')); } catch { /* first time */ }
+      const items = await community.fetchCommunity({ recompendiumCache: rc, log: this.hooks.log || (() => {}) });
+      const warn = items.warn || [];
+      fsp.writeFile(rcCache, JSON.stringify(rc)).catch(() => {});
+      // a list that failed is tried again in about an hour, not tomorrow
+      await fsp.writeFile(cache, JSON.stringify({ v: 4, fetchedAt: warn.length ? Date.now() - 23 * 3600 * 1000 : Date.now(), warn, items }));
+      return withWarn(items, warn);
     } catch (e) {
-      if (cached) return this.markCommunity(cached.items);
-      return { ...this.markCommunity([]), offline: e.message }; // Fulton's own list still shows
+      if (cached) return withWarn(cached.items, cached.warn);
+      return { ...this.markCommunity([]), warn: [], offline: e.message }; // Fulton's own list still shows
     }
   }
 

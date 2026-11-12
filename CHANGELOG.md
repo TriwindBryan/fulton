@@ -2,6 +2,12 @@
 
 From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
 
+## Beta 0.0030 (1.63) - Find more loads all the recomps again
+
+- **Find more could quietly miss ports.** Recompendium (one of the two lists behind Find more) now holds thousands of cover pictures, so downloading it went from a few hundred KB to about 26 MB. On a slow or flaky connection that download could fail and Fulton just showed the smaller list. Fulton now reads only Recompendium's ~1,300 small data files, remembers them, and on later refreshes downloads only what changed. The old full download is still the fallback.
+- **No more silent gaps.** If either list can't be loaded, Find more now says so at the top of the page, with a "Try again now" button, and tries again in about an hour instead of a day.
+- The log (Report a problem) now says how many ports each list gave.
+
 ## Beta 0.0029 (1.62) - One Support button
 
 - The Support button in the top-right of the header is gone; the ♥ Support button at the bottom of the sidebar stays.

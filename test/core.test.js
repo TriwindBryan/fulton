@@ -1940,3 +1940,42 @@ test('Mac scan never walks into Photos, Music, Library or iCloud folders', async
   assert.deepEqual(found, ['Games/SNES/real.sfc']);
   fs.rmSync(work, { recursive: true, force: true });
 });
+
+test('Recompendium light download: reads only the data files, remembers them by hash, and falls back to the full archive', async (t) => {
+  const rc = require('../src/core/recompendium');
+  const community = require('../src/core/community');
+  const yamls = {
+    'src/data/recomps/sot.yaml': 'name: "The Legend of Zelda: Ocarina of Time - Sands of Time"\nconsole: n64\nstatus: beta\nrepo: NekoNeko6330/SoTRecomp\ndesc:\n  en: "A recomp."\n',
+    'src/data/ports/ship.yaml': 'name: Ship of Harkinian\ncategory: decomp-port\nconsole: n64\nrepo: HarbourMasters/Shipwright\ndesc:\n  en: "A port."\n',
+    'src/data/decomps/x.yaml': 'name: skipped\nrepo: a/b\n',
+  };
+  const tree = { truncated: false, tree: [
+    ...Object.keys(yamls).map((p) => ({ path: p, type: 'blob', sha: 'sha-' + p })),
+    { path: 'src/data/stats.json', type: 'blob', sha: 's1' }, { path: 'public/portadas/big.png', type: 'blob', sha: 'p1' }] };
+  const asked = [];
+  const realFetch = global.fetch;
+  t.after(() => { global.fetch = realFetch; });
+  global.fetch = async (url) => {
+    asked.push(url);
+    if (url === rc.ARCHIVE_URL) throw new Error('the big download must not be used');
+    if (/git\/trees/.test(url)) return { ok: true, status: 200, text: async () => JSON.stringify(tree) };
+    if (/stats\.json$/.test(url)) return { ok: true, status: 200, text: async () => JSON.stringify({ 'NekoNeko6330/SoTRecomp': { version: 'v1' } }) };
+    const p = Object.keys(yamls).find((k) => url.endsWith(k));
+    return p ? { ok: true, status: 200, text: async () => yamls[p] } : { ok: false, status: 404 };
+  };
+  const cache = {};
+  const first = await rc.fetchRecompendium(cache);
+  assert.deepEqual(first.map((c) => c.repo).sort(), ['HarbourMasters/Shipwright', 'NekoNeko6330/SoTRecomp']);
+  assert.equal(first.find((c) => c.repo === 'NekoNeko6330/SoTRecomp').get, 'download', 'stats.json says it has a release');
+  assert.ok(!asked.some((u) => /portadas|decomps/.test(u)), 'pictures and other folders are not downloaded');
+  asked.length = 0;
+  const again = await rc.fetchRecompendium(cache);
+  assert.equal(again.length, 2);
+  assert.deepEqual(asked.filter((u) => /\.yaml$/.test(u)), [], 'unchanged files come from the cache');
+
+  // one list failing is reported, not hidden
+  global.fetch = async (url) => (/index\.json$/.test(url) ? { ok: false, status: 500 } : /git\/trees/.test(url) ? { ok: true, status: 200, text: async () => JSON.stringify(tree) } : /stats\.json$/.test(url) ? { ok: true, status: 200, text: async () => '{}' } : { ok: true, status: 200, text: async () => yamls[Object.keys(yamls).find((k) => url.endsWith(k))] || '' });
+  const items = await community.fetchCommunity({ recompendiumCache: {} });
+  assert.deepEqual(items.warn, ['Quiver']);
+  assert.ok(items.some((c) => c.repo === 'NekoNeko6330/SoTRecomp'));
+});
