@@ -2,6 +2,11 @@
 
 From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
 
+## Beta 0.0051 (1.84) - Drop-down text no longer runs into the next column
+
+- Long words in a game's drop-down (a project name like sonicdcer/Starfox64Recomp, a link, a file checksum, the release notes) now wrap inside their own column instead of running across the next one or getting cut off at the window edge.
+- The links under the drop-down (Change cover, Favorite, Project page, Full release notes) wrap onto the next line instead of falling off the right side.
+
 ## Beta 0.0050 (1.83) - Text no longer shows through the filter bar
 
 - When you scroll a game's drop-down, its text slid under the see-through filter bar and showed through behind the bar's own labels (seen on the Mac). The bar is now solid blue glass, so nothing shows through.

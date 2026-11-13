@@ -1,14 +1,14 @@
 {
   "name": "cartridge-launcher",
   "productName": "Fulton",
-  "version": "1.83.0",
+  "version": "1.84.0",
   "description": "Fulton: Your home base for recomps, decomps and remakes. A launcher for decompiled and recompiled retro game ports. Bring your ROMs, it does the rest.",
   "main": "main.js",
   "cartridge": {
     "kofi": "https://ko-fi.com/triwind",
     "repo": "TriwindBryan/fulton",
     "itch": "",
-    "label": "Beta 0.0050"
+    "label": "Beta 0.0051"
   },
   "license": "MIT",
   "scripts": {
