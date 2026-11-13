@@ -2,6 +2,102 @@
 
 From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
 
+## Beta 0.0048 (1.81) - Move to another drive is back where you can see it
+
+- "Move" is now a link in the top banner next to Open folder, Screenshots and Uninstall, as well as in the drop-down. It always shows for an installed game; if you only have one drive on your list it tells you to add another in Settings > Drives.
+
+## Beta 0.0047 (1.80) - Always opens on Games
+
+- Fulton now always opens on the Games tab. Only your layout and sort are remembered between runs; a page left over from an older version (like Find more) is ignored.
+
+## Beta 0.0046 (1.79) - Tidier tools row on Find more
+
+- Search, Open filters, System icons, Size, Sort and Refresh list now sit on one straight line at the same height, instead of scattered over two uneven rows. On narrower windows the tools drop neatly onto their own row under the search.
+
+## Beta 0.0045 (1.78) - No rounded boxes anywhere
+
+- Every box, button, note, swatch, tag, sidebar item and drawer button across the whole app now has square corners. Only the tiny status dots and timeline markers stay round.
+
+## Beta 0.0044 (1.77) - Square corners
+
+- The glass look is square again: the system picker, the system info panel, the game cards, the system icon, buttons and sidebar tabs all have sharp corners.
+
+## Beta 0.0043 (1.76) - System picker and system info are separate again
+
+- On Find more the system picker (All, N64, NDS...) is now its own small rounded glass bar, and the system information (icon, name, facts, counts) is a separate glass panel under it. Before they were squeezed into one big block.
+- The production timeline graph is back under the system you pick (launch year to end of production, with the "years in production" label). It had been hidden by mistake.
+
+## Beta 0.0042 (1.75) - Readable system tabs
+
+- The system tabs on Find more (All, N64, NDS...) are back to normal readable text, much closer together, with the selected one in a soft rounded pill. They had turned into tiny spaced-out capitals.
+
+## Beta 0.0041 (1.74) - Frosted glass look on every screen
+
+- The rest of the app now matches the new game banner. Pages no longer sit inside a big box: titles are plain and large, and the content floats on the background.
+- The sidebar is frosted glass with a soft accent fade on the page you are on. Support is a small pink heart link at the bottom.
+- Find more: the system bar (All, N64, NDS... and the system summary) is now see-through rounded glass with no lines, and the system icon glows in its own color so it stands out. Game cards are rounded glass tiles.
+- Buttons and fields are rounded and use the accent color. Every control that was there is still there.
+
+## Beta 0.0040 (1.73) - Banner text no longer cut off
+
+- The line under the ROM name ("Chosen by you") was being sliced in half in the top banner. It now always shows in full.
+- The long project description in the banner is capped at three lines so the banner stays compact. The full text is still in the details below.
+
+## Beta 0.0039 (1.72) - Fixes the Windows build
+
+- The installer build stopped on a self-check for moving a game between drives, because that check looked for a file permission that Windows doesn't have. The check now skips that on Windows. Nothing in the app itself changed.
+
+## Beta 0.0038 (1.71) - Clicking a game no longer scrolls the page
+
+- When you click a game, the page stays exactly where it is. It no longer jumps the game up to the top or folds the banner. The details just open under that row, and you scroll down to see them if you want.
+- Moving between games with the arrow keys still keeps the selected game in view.
+
+## Beta 0.0037 (1.70) - Banner and filters joined, with a color fade
+
+- The top banner and the filter bar are now one piece. The gap between them is gone, with a thin accent-colored line where they meet.
+- The blue line across the top of the banner and the white line beside the cover are gone, so the cover just sits there on its own.
+- Next to the cover, the banner is tinted with your accent color and fades smoothly to nothing toward the right edge of the window. The text stays solid and easy to read.
+
+## Beta 0.0036 (1.69) - Top banner: no gap, big square cover
+
+- The top banner now runs flush against the sidebar and the window edge. The gap on the left is gone.
+- The cover is now a big square that fills the whole left side of the banner, as tall as the banner itself, with the port name running up its edge.
+- Fixed the banner's folding when you scroll: the cover strip and the title stay put and shrink smoothly.
+
+## Beta 0.0035 (1.68) - New top banner for the selected game
+
+- **The big banner at the top matches the glass look.** A tall cover strip on the left with the port name running down it, and a frosted glass panel on the right with a glowing line along the top.
+- The title is now clean white, and the details (System, Released, Developer, Publisher, Played, ROM file, ROM version) sit in one ruled row instead of separate boxes.
+- Play, Load ROM and all the links are still there; Play and the links use your accent color (Play was green before). The ROM notice is a single flat line with an amber dot.
+- It still folds up smoothly as you scroll down the games.
+
+## Beta 0.0034 (1.67) - Easier to read game details
+
+- The details that drop down under a game now sit on a dark, frosted layer that fades out at the edges, so the words stand out from the background instead of blending into the blue glow.
+- Brighter, slightly larger text, and lighter labels.
+- Links (Back up now, Open backups folder, Change cover, Project page, Add to Steam and so on) now use your accent color. The installed version number does too, instead of green. Uninstall and Remove stay a soft red.
+
+## Beta 0.0033 (1.66) - A clean glass banner for the filters
+
+- **The filter bubbles are gone.** The bar above your games is now one flat strip of frosted glass with sharp edges. The games blur softly underneath it as you scroll.
+- **Two thin lines, fixed height.** Top line: the tabs (All, Decomp, Recomp, Remake, ROMs, Favorites) with a glowing underline in your theme color on the active one, and the counts beside them. Bottom line: Showing N games, then Console, Status, Sort and Layout. It never grows, shrinks or jumps around any more.
+- Every filter and option is still there, and a search or active filter still shows a small tag and a Reset link.
+
+## Beta 0.0032 (1.65) - Game details drop down between the rows
+
+- **The side panel is gone.** Click a game and its details now grow open right under that game's row, pushing the next row down, floating over the background with a soft glow in your theme color. No box around it.
+- **Everything from the old side panel is still there:** the original game, this port, what you need and Load ROM, version and what's new, your saves, change cover, favorite, project page, website, open folder, add to Steam, move to another drive, uninstall and remove from shelf. The most used ones are also round buttons under the title (ROM, Update, Saves, Shots, Move, Favorite, Folder).
+- **No Play button in the drop down.** Double-click a game, or select it and press Enter, to play. Installing and updating still have their buttons.
+- **Closing it:** the X, Esc, or clicking the same game again.
+
+## Beta 0.0031 (1.64) - Move a game to another drive
+
+- **Move to another drive.** On a game's page (when you have more than one drive listed in Settings > Drives) there is now a **Move to another drive** link. Pick the drive and Fulton copies the whole game folder there, checks that every file arrived, switches the game over, and only then deletes the old copy. Saves and settings inside the game folder come along, and play time and history are kept.
+- **Safe if something goes wrong.** A full drive, an unplugged drive or pressing Cancel stops the move and leaves your game exactly where it was. Fulton also checks there is enough room before it starts, and won't move a game that is running or overwrite a folder that is already there.
+- If the game is in Steam, Fulton tells you to remove it and add it again so the shortcut points to the new place.
+- A copy you linked yourself (Add your copy) is never moved; Fulton leaves your own files where you keep them.
+- While a game is being installed or moved, Play and Uninstall wait until it is done.
+
 ## Beta 0.0030 (1.63) - Find more loads all the recomps again
 
 - **Find more could quietly miss ports.** Recompendium (one of the two lists behind Find more) now holds thousands of cover pictures, so downloading it went from a few hundred KB to about 26 MB. On a slow or flaky connection that download could fail and Fulton just showed the smaller list. Fulton now reads only Recompendium's ~1,300 small data files, remembers them, and on later refreshes downloads only what changed. The old full download is still the fallback.

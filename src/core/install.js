@@ -183,6 +183,46 @@ async function walk(dir, depth = 0, out = [], opts = {}) {
   return out;
 }
 
+
+/** Every file and link under a folder, at any depth, as Map(relative path -> size). Empty folders are included as "dir/". */
+async function treeStats(dir, base = dir, out = new Map()) {
+  for (const e of await fsp.readdir(dir, { withFileTypes: true })) {
+    const full = path.join(dir, e.name);
+    const rel = path.relative(base, full).split(path.sep).join('/');
+    if (e.isSymbolicLink()) out.set(rel, -1);
+    else if (e.isDirectory()) { const n = out.size; await treeStats(full, base, out); if (out.size === n) out.set(rel + '/', 0); }
+    else out.set(rel, (await fsp.stat(full)).size);
+  }
+  return out;
+}
+
+/**
+ * Copy a whole folder (any depth), keeping file permissions (the executable bit matters on Mac and Linux) and links.
+ * Big files are streamed so progress moves smoothly. onBytes(n) is called as bytes are written; `signal` cancels.
+ */
+async function copyTree(src, dest, { onBytes = () => {}, signal } = {}) {
+  const check = () => { if (signal && signal.aborted) throw new Error('cancelled'); };
+  await fsp.mkdir(dest, { recursive: true });
+  for (const e of await fsp.readdir(src, { withFileTypes: true })) {
+    check();
+    const from = path.join(src, e.name), to = path.join(dest, e.name);
+    if (e.isSymbolicLink()) { await fsp.symlink(await fsp.readlink(from), to); continue; }
+    if (e.isDirectory()) { await copyTree(from, to, { onBytes, signal }); continue; }
+    const st = await fsp.stat(from);
+    if (st.size < 32 * 1024 * 1024) { await fsp.copyFile(from, to); onBytes(st.size); }
+    else {
+      await new Promise((resolve, reject) => {
+        const rs = fs.createReadStream(from), ws = fs.createWriteStream(to);
+        rs.on('data', (c) => { onBytes(c.length); if (signal && signal.aborted) { rs.destroy(new Error('cancelled')); } });
+        rs.on('error', (er) => { ws.destroy(); reject(er); });
+        ws.on('error', reject); ws.on('finish', resolve);
+        rs.pipe(ws);
+      });
+    }
+    await fsp.chmod(to, st.mode & 0o7777).catch(() => {});
+  }
+}
+
 const NOT_THE_GAME = /(unins|setup|vc_?redist|vcredist|crashpad|crash_?handler|dxsetup|dxwebsetup|updater|uninstall|7z(a|r)?\.exe$|dotnet)/i;
 
 /** Mac: turn the catalog's Windows exe hint ("soh\\.exe$") into one for app bundles ("soh"). */
@@ -237,4 +277,4 @@ async function findExecutable(dir, exeHint, platform = process.platform) {
   return cands.length ? cands[0].full : null;
 }
 
-module.exports = { listArchive, download, extract, unwrap, mergeInto, findExecutable, walk, clearQuarantine, macHint, expandNested };
+module.exports = { treeStats, copyTree, listArchive, download, extract, unwrap, mergeInto, findExecutable, walk, clearQuarantine, macHint, expandNested };

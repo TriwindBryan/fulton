@@ -163,6 +163,7 @@ app.whenReady().then(async () => {
     if (response === 0) await lib.uninstall(id);
     return response === 0;
   });
+  handle('moveGame', (id, root) => lib.moveGame(id, root));
   handle('launch', (id, opts) => lib.launch(id, opts));
   handle('addRoms', (paths) => lib.addRoms(paths));
   handle('pickRoms', async (mode) => {

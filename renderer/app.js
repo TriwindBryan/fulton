@@ -5,7 +5,8 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const ui = { view: 'shelf', filter: 'all', system: null, kind: null, query: '', selected: null, selRow: null, layout: 'rows', sort: 'smart' };
-try { Object.assign(ui, JSON.parse(localStorage.getItem('cartridge.view') || '{}')); } catch { /* storage unavailable */ }
+// only the layout and sort are remembered; Fulton always opens on the Games tab (older builds also saved the page, which is ignored now)
+try { const sv = JSON.parse(localStorage.getItem('cartridge.view') || '{}'); if (sv.layout) ui.layout = sv.layout; if (sv.sort) ui.sort = sv.sort; } catch { /* storage unavailable */ }
 function saveViewPrefs() { try { localStorage.setItem('cartridge.view', JSON.stringify({ layout: ui.layout, sort: ui.sort })); } catch { /* ignore */ } }
 let S = null; // latest snapshot from the main process
 
@@ -584,21 +585,22 @@ function shelfBar() {
   const statusN = { favorites: count((x) => x.favorite), available: count(runsHere), installed: count((x) => x.installed), ready: count((x) => x.romMatch && !x.installed && !x.sourceOnly), needs: count((x) => !x.romMatch && !x.sourceOnly) };
   const pool = romMode() ? S.roms : S.games;
   const consoles = Object.entries(S.systems).map(([id, s]) => [id, s, pool.filter((x) => x.system === id).length]).filter(([, , n]) => n);
-  const chips = `<div class="show-chips" role="group" aria-label="Show">${SHOW.map(([id, , tip, col], i) =>
-    `${id === 'roms' ? '<span class="show-sep"></span>' : ''}<button class="show-chip t-${col}${(ui.kind || '') === id ? ' on' : ''}" data-type="${id}" title="${esc(tip)} (key ${i + 1})"><i></i>${SHORT[id]}<span class="n">${id === 'roms' ? S.roms.length : id === 'favorites' ? count((x) => x.favorite) : count((x) => !id || KIND_GROUP(x.kind) === id)}</span></button>`).join('')}</div>`;
-  const pick = (key, label, on, options) => `<label class="pick${on ? ' on' : ''}"><span>${label}</span><select data-pick="${key}">${options}</select></label>`;
+  const tabs = `<div class="fb-tabs" role="group" aria-label="Show">${SHOW.map(([id, , tip], i) =>
+    `<button class="fb-tab${(ui.kind || '') === id ? ' on' : ''}" data-type="${id}" title="${esc(tip)} (key ${i + 1})"><span>${SHORT[id]}</span><sup>${id === 'roms' ? S.roms.length : id === 'favorites' ? count((x) => x.favorite) : count((x) => !id || KIND_GROUP(x.kind) === id)}</sup></button>`).join('')}</div>`;
+  const pick = (key, label, on, options) => `<label class="fb-pk${on ? ' on' : ''}"><span class="fb-m">${label}</span><select data-pick="${key}">${options}</select></label>`;
   const opt = (value, label, cur) => `<option value="${esc(value)}"${cur === value ? ' selected' : ''}>${esc(label)}</option>`;
   const dropdowns = [
-    pick('layout', 'Layout', false, opt('rows', 'Rows', ui.layout) + opt('grid', 'Grid', ui.layout)),
-    pick('sort', 'Sort', ui.sort !== 'smart', Object.entries(SORTS).filter(([k]) => (!romMode() || ROM_SORTS[k]) && (k !== 'score' || S.settings.showMetacritic)).map(([k, [label]]) => opt(k, label, ui.sort)).join('')),
     pick('system', 'Console', !!ui.system, opt('', `All consoles (${pool.length})`, ui.system || '') + consoles.map(([id, sy, n]) => opt(id, `${sy.name} (${n})`, ui.system)).join('')),
     romMode() ? '' : pick('filter', 'Status', ui.filter !== 'all', opt('all', `Any (${S.games.length})`, ui.filter) + STATUS.map(([id, label]) => opt(id, `${statusLabel(label)} (${statusN[id]})`, ui.filter)).join('')),
+    pick('sort', 'Sort', ui.sort !== 'smart', Object.entries(SORTS).filter(([k]) => (!romMode() || ROM_SORTS[k]) && (k !== 'score' || S.settings.showMetacritic)).map(([k, [label]]) => opt(k, label, ui.sort)).join('')),
+    pick('layout', 'Layout', false, opt('rows', 'Rows', ui.layout) + opt('grid', 'Grid', ui.layout)),
   ].join('');
   const extras = (ui.system || ui.filter !== 'all' || ui.sort !== 'smart' || ui.query.trim())
-    ? `${ui.query.trim() ? `<button class="ftag" data-clear="query" title="Clear the search">“${esc(ui.query.trim())}”<b>×</b></button>` : ''}<button class="btn-link" data-act="reset-filters">Reset</button>` : '';
-  return `<div class="shelf-bar">
-    <div class="bar-main">${chips}<span class="spacer"></span><button class="icon-btn" data-act="refresh" title="Check every game for updates">↻</button></div>
-    <div class="bar-sub">${dropdowns}${extras}</div>
+    ? `${ui.query.trim() ? `<button class="ftag" data-clear="query" title="Clear the search">“${esc(ui.query.trim())}”<b>×</b></button>` : ''}<button class="fb-reset" data-act="reset-filters">Reset</button>` : '';
+  const shown = filtered().length;
+  return `<div class="fbar">
+    <div class="fb-row">${tabs}<span class="fb-sp"></span>${extras}<button class="fb-ico" data-act="refresh" title="Check every game for updates">↻</button></div>
+    <div class="fb-spec"><span class="fb-show"><i class="fb-m">Showing</i><b>${shown.toLocaleString()} ${romMode() ? (shown === 1 ? 'ROM' : 'ROMs') : (shown === 1 ? 'game' : 'games')}</b></span>${dropdowns}</div>
   </div>`;
 }
 
@@ -638,11 +640,13 @@ function renderShelf() {
       </section>`).join('');
   const prevScroll = $('#view').scrollTop;
   lastRomsSig = '';
+  stashInfo();
   $('#view').innerHTML = shelfBar() + body;
   $('#view').scrollTop = prevScroll;
   hydrateArt($('#view'));
   hydrateCovers($('#view'));
   markSelected(false);
+  placeInfo();
   updateRowArrows();
 }
 
@@ -806,6 +810,7 @@ function renderDetail() {
         <div class="box-side"><b>${esc(g.title)}</b></div>
       </div>
       <div class="box-shadow"></div>
+      <span class="hz-spine">${esc(g.port)}</span>
     </div>
     <div class="hero-info">
       <h1 class="hero-title${g.title.length > 24 ? ' long' : ''}"><span class="chrome">${esc(g.title)}</span></h1>
@@ -820,7 +825,7 @@ function renderDetail() {
         <button class="btn-link" data-act="open-repo">Project page</button>
         ${g.site ? '<button class="btn-link" data-act="open-site">Website</button>' : ''}
         ${g.release && g.release.url ? '<button class="btn-link" data-act="open-notes">Release notes</button>' : ''}
-        ${g.installed ? `<span>${g.installed.manual ? 'Your own copy' : `Installed ${esc(g.installed.tag)}`}</span><button class="btn-link" data-act="open-folder">Open folder</button><button class="btn-link" data-act="game-shots">Screenshots</button><button class="btn-link danger" data-act="uninstall">${g.installed.manual ? 'Remove from Fulton' : 'Uninstall'}</button>` : ''}
+        ${g.installed ? `<span>${g.installed.manual ? 'Your own copy' : `Installed ${esc(g.installed.tag)}`}</span><button class="btn-link" data-act="open-folder">Open folder</button><button class="btn-link" data-act="game-shots">Screenshots</button>${g.installed.manual ? '' : '<button class="btn-link" data-act="move-drive" title="Copies the game to another drive on your list, checks it, then removes the old copy">Move</button>'}<button class="btn-link danger" data-act="uninstall">${g.installed.manual ? 'Remove from Fulton' : 'Uninstall'}</button>` : ''}
         ${g.installed && !g.inSteam ? '<button class="btn-link steam" data-act="add-steam">＋ Add to Steam</button>' : ''}
         ${g.inSteam ? '<span class="in-steam">✓ In Steam</span><button class="btn-link danger" data-act="remove-steam">Remove from Steam</button>' : ''}
         <button class="btn-link danger" data-act="remove-shelf" title="${g.installed ? 'Uninstalls the game (after asking), then takes it off your shelf' : 'Takes it off your shelf; add it back any time from Find more'}">Remove from shelf</button>
@@ -864,6 +869,7 @@ function renderRomDetail(el) {
         <div class="box-side"><b>${esc(short)}</b></div>
       </div>
       <div class="box-shadow"></div>
+      <span class="hz-spine">${esc(short)}</span>
     </div>
     <div class="hero-info">
       <h1 class="hero-title${short.length > 24 ? ' long' : ''}"><span class="chrome">${esc(short)}</span></h1>
@@ -892,13 +898,13 @@ function selectedEl() {
     || document.querySelector(`.card[data-id="${id}"]`);
 }
 
-function markSelected(smooth) {
+function markSelected(smooth, reveal = true) {
   document.querySelectorAll('.card.selected').forEach((c) => c.classList.remove('selected'));
   const el = selectedEl();
   if (!el) return;
   el.classList.add('selected');
   ui.selRow = el.dataset.row;
-  revealCard(el, smooth);
+  if (reveal) revealCard(el, smooth);
 }
 
 /** Bring a card into view: sideways inside its row, and up/down within the page. */
@@ -910,16 +916,17 @@ function revealCard(card, smooth) {
   const v = view.getBoundingClientRect();
   const sec = card.closest('.row-sec');
   const r = (ui.layout === 'grid' ? card : sec || card).getBoundingClientRect();
-  const bar = document.querySelector('#view .shelf-bar');
+  const bar = document.querySelector('#view .fbar');
   const pad = (bar ? bar.offsetHeight : 60) + 50; // keep the row title clear of the sticky filter bar
   if (r.top < v.top + pad) view.scrollBy({ top: r.top - v.top - pad, behavior });
   else if (r.bottom > v.bottom - 20) view.scrollBy({ top: r.bottom - v.bottom + 40, behavior });
 }
 
-function select(id, el) {
+/** reveal = false when you clicked the card yourself: it is already on screen, so nothing should scroll or fold the banner */
+function select(id, el, reveal = true) {
   ui.selected = id;
   ui.selRow = el ? el.dataset.row : null;
-  markSelected(true);
+  markSelected(true, reveal);
   renderDetail();
 }
 
@@ -969,13 +976,32 @@ const cleanNotes = (md) => String(md || '')
   .replace(/<!--[\s\S]*?-->/g, '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
   .replace(/^#{1,6}\s*/gm, '').replace(/\*\*|__|`/g, '').replace(/^\s*[-*]\s+/gm, '• ').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
+
+/** The details drawer is one element that lives between the selected game's row and the next row. */
+function stashInfo() { const el = $('#info'); if (el && el.parentElement !== document.body) document.body.appendChild(el); if (el) el.classList.remove('inline'); }
+function placeInfo() {
+  const el = $('#info');
+  const card = ui.infoOpen && ui.view === 'shelf' ? selectedEl() : null;
+  if (!el || !card) { stashInfo(); return; }
+  const wrap = card.parentElement;
+  let anchor;
+  if (wrap.classList.contains('grid')) {
+    const top = card.offsetTop;
+    anchor = [...wrap.children].filter((c) => c.classList.contains('card') && Math.abs(c.offsetTop - top) < 40).pop() || card;
+  } else anchor = card.closest('.shelf-wrap') || wrap;
+  el.classList.add('inline');
+  if (anchor.nextElementSibling !== el) anchor.after(el);
+  if (el.dataset.placed !== ui.selected) { el.dataset.placed = ui.selected; el.classList.remove('grow'); void el.offsetWidth; el.classList.add('grow'); }
+}
+window.addEventListener('resize', () => { if (ui.infoOpen) placeInfo(); });
+
 function renderInfo() {
   const el = $('#info');
   const g = ui.infoOpen && ui.view === 'shelf' ? S.games.find((x) => x.id === ui.selected) : null;
   el.classList.toggle('open', !!g);
   el.setAttribute('aria-hidden', g ? 'false' : 'true');
-  document.body.classList.toggle('info-open', !!g);
-  if (!g) return;
+  if (!g) { stashInfo(); return; }
+  placeInfo();
   el.style.setProperty('--c', sysColor(g));
   const sys = S.systems[g.system] || {};
   const m = g.romMatch;
@@ -984,13 +1010,38 @@ function renderInfo() {
   const howRom = { 'beside-exe': 'Fulton puts your ROM next to the game, which finds it on first launch and extracts its assets.', file: `Fulton copies your ROM to ${spec.setup && spec.setup.path} inside the game folder.`, 'in-app': "The game asks for the ROM the first time you play, so you don't have to load it here. If you do, Fulton checks it's the right version and copies its location to your clipboard so you can paste it in.", none: 'You supply the ROM when you build the project yourself.' }[(spec.setup && spec.setup.type) || 'in-app'];
   const notes = g.release && cleanNotes(g.release.notes);
 
+  const live = g.installed && !g.running ? primaryAction(g).replace(/<button class="btn3d huge lime"[^>]*>[^<]*<\/button>/, '') : g.installed ? primaryAction(g).replace(/<button class="btn3d huge lime"[^>]*>[^<]*<\/button>/, '') : primaryAction(g);
+  const rb = (ic, t, act, cls = '', tip = '') => `<div class="dr-rb ${cls}"><button data-act="${act}" title="${esc(tip || t)}">${ic}</button><span>${esc(t)}</span></div>`;
+  const noRom = !m && !asksForRom(g);
+  const round = [
+    g.sourceOnly ? '' : rb('◉', 'ROM', 'load-rom', noRom ? 'warn' : m ? 'ok' : '', m ? 'Load a different ROM' : 'Load ROM'),
+    g.updateAvailable && g.installed ? rb('⬇', 'Update', 'install', 'hot', 'Update to ' + (g.release && g.release.tag)) : '',
+    g.installed ? rb('◔', 'Saves', 'backup-now', '', 'Back up your saves now') : '',
+    rb('▣', 'Shots', 'game-shots', '', 'Screenshots'),
+    g.installed && !g.installed.manual ? rb('⇄', 'Move', 'move-drive', '', 'Move to another drive') : '',
+    rb(g.favorite ? '★' : '☆', 'Favorite', 'favorite', g.favorite ? 'on' : ''),
+    g.installed ? rb('⌂', 'Folder', 'open-folder', '', 'Open game folder') : '',
+  ].join('');
+  const chip = (t, c = '') => t ? `<span class="${c}">${esc(String(t))}</span>` : '';
+  const status = g.running ? chip('Playing now', 'ok') : g.installed ? chip('Installed ' + g.installed.tag, 'ok') : '';
+  const where = g.installed && g.installed.dir ? esc(g.installed.dir) : '';
+
   el.innerHTML = `
-    <div class="info-top">${artMarkup(g, true)}${burstHtml(burstOf(g))}<button class="info-close" data-act="close-info" title="Close (Esc)">✕</button></div>
-    <h2 class="info-title${g.title.length > 24 ? ' long' : ''}"><span class="chrome">${esc(g.title)}</span></h2>
-    <p class="info-port">${esc(g.port)}</p>
+    <div class="dr-glow"></div>
+    <div class="dr-head">
+      <div class="dr-cover"><div class="dr-art">${artMarkup(g, true)}</div><i class="dr-sheen"></i></div>
+      <div class="dr-main">
+        <p class="dr-eyebrow">${esc(g.port)} · ${esc(g.kind || 'Native PC port')}</p>
+        <h2 class="dr-title">${esc(g.title)}</h2>
+        <div class="dr-chips">${chip(sys.short)}${chip(g.year)}${chip(g.developer)}${status}</div>
+        ${live.trim() ? `<div class="info-actions dr-live">${live.replace(/btn3d huge/g, 'btn3d')}</div>` : ''}
+        <div class="dr-round">${round}</div>
+        ${g.installed && !g.running ? '<p class="dr-hint">Double-click the game or press Enter to play</p>' : ''}
+      </div>
+      <button class="info-close" data-act="close-info" title="Close (Esc)">✕</button>
+    </div>
     <div class="info-body">
       ${metaBlock(g)}
-      <div class="info-actions">${primaryAction(g).replace(/btn3d huge/g, 'btn3d')}</div>
 
       <section class="info-sec"><h3>The original game</h3>
         ${g.about ? `<p>${esc(g.about)}</p>` : ''}
@@ -1042,10 +1093,12 @@ function renderInfo() {
         ${g.inSteam ? '<button class="btn-link danger" data-act="remove-steam">Remove from Steam</button>' : ''}
       </div>
       <div class="info-foot">
+        ${g.installed && !g.installed.manual ? `<button class="btn-link" data-act="move-drive" title="Copies the game to another drive on your list, checks it, then removes the old copy">Move to another drive</button>` : ''}
         ${g.installed ? `<button class="btn-link danger" data-act="uninstall">${g.installed.manual ? 'Remove from Fulton' : 'Uninstall'}</button>` : ''}
         <button class="btn-link danger" data-act="remove-shelf" title="${g.installed ? 'Uninstalls the game (after asking), then takes it off your shelf' : 'Takes it off your shelf; add it back any time from Find more'}">Remove from shelf</button>
       </div>
-    </div>`;
+    </div>
+    ${where ? `<div class="dr-path">${where}</div>` : ''}`;
   hydrateArt(el);
 }
 
@@ -1169,7 +1222,7 @@ function romHelpHtml(g) {
   return `${versions}${guideHtml}`;
 }
 
-function openInfo(open = true) { ui.infoOpen = open; if (!open) panelFocusSig = null; renderInfo(); restorePanelFocus(); if (pad.connected) updatePadHints(); }
+function openInfo(open = true) { ui.infoOpen = open; if (!open) { const e = $('#info'); if (e) delete e.dataset.placed; } if (!open) panelFocusSig = null; renderInfo(); restorePanelFocus(); if (pad.connected) updatePadHints(); }
 
 // ---------------------------------------------------------------- Steam artwork (drawn here, saved by the main process)
 function loadImg(src) {
@@ -1548,7 +1601,7 @@ function renderDiscoverList() {
       const label = live ? 'still on sale' : ended ? `launched ${f.from} · no longer in production (no official end date)` : to ? `${to - f.from} year${to - f.from === 1 ? '' : 's'} in production` : `launched ${f.from}`;
       tl = `<div class="sys-tl" style="--c:${col}"><div class="tl-track"></div>${to ? `<div class="tl-span" style="left:${pos(f.from)}%;width:${Math.max(1, pos(to) - pos(f.from))}%"></div>` : ''}${fadeTo ? `<div class="tl-span fade" style="left:${pos(f.from)}%;width:${Math.max(1, pos(fadeTo) - pos(f.from))}%"></div>` : ''}<span class="tl-dot" style="left:${pos(f.from)}%"></span>${to ? `<span class="tl-dot" style="left:${pos(to)}%"></span>` : ''}<span class="tl-mid" style="left:${to ? (pos(f.from) + pos(to)) / 2 : fadeTo ? (pos(f.from) + pos(fadeTo)) / 2 : pos(f.from)}%">${label}</span><span class="tl-yr k" style="left:${pos(f.from)}%">${f.from}</span>${to ? `<span class="tl-yr k" style="left:${pos(to)}%">${live ? 'Now' : to}</span>` : ''}${ticks}</div>`;
     }
-    return `<div class="sys-head" style="--c:${col}"><div class="sys-left"><div class="sys-tile">${disc.system ? sysIcon(disc.system, 'sys-ic-lg') : '<svg class="sys-ic-lg" aria-hidden="true"><use href="#ic-pad"/></svg>'}<em>${esc(sy ? sy.short : 'ALL')}</em></div><div class="sys-nm"><b>${esc(sy ? sy.name : 'All systems')}</b><span>${sub}</span></div></div><div class="sys-stats">${stats.map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('')}${miniChart}</div></div>${tl}`;
+    return `<div class="sys-info"><div class="sys-head" style="--c:${col}"><div class="sys-left"><div class="sys-tile">${disc.system ? sysIcon(disc.system, 'sys-ic-lg') : '<svg class="sys-ic-lg" aria-hidden="true"><use href="#ic-pad"/></svg>'}<em>${esc(sy ? sy.short : 'ALL')}</em></div><div class="sys-nm"><b>${esc(sy ? sy.name : 'All systems')}</b><span>${sub}</span></div></div><div class="sys-stats">${stats.map(([n, l]) => `<div><b>${n}</b><span>${l}</span></div>`).join('')}${miniChart}</div></div>${tl}</div>`;
   })();
   chipsEl.innerHTML = panel + activeLine + `<div class="sys-row">` + '<span class="show-break"></span>' + `<button class="chip${!disc.system ? ' active' : ''}" data-disc-system="">All<span class="n">${all.length}</span></button>` + sysOrder.map((id) => `<button class="chip${disc.system === id ? ' active' : ''}" data-disc-system="${id}" style="--pc:${S.systems[id].color}">${iconsOn() ? sysIcon(id) : '<span class="pip"></span>'}${esc(S.systems[id].short)}<span class="n">${bySys[id]}</span></button>`).join('') + `</div>${sysBox}`;
 
@@ -1795,17 +1848,23 @@ async function loadDrives() {
 }
 
 /** Which drive should this game go on? Shown for a new install when more than one location is listed. */
-async function showDrivePicker(g) {
-  const list = await api.drives().catch(() => []);
-  ui.drives = list; ui.pendingDriveGame = g.id;
+async function showDrivePicker(g, mode = 'install') {
+  let list = await api.drives().catch(() => []);
+  const norm = (p) => String(p || '').replace(/[\\/]+/g, '/').toLowerCase();
+  if (mode === 'move') { // every drive except the one the game is on now
+    const here = norm(g.installed && g.installed.dir) + '/';
+    list = list.filter((d) => !here.startsWith(norm(d.dir) + '/'));
+    if (!list.length) { toast('No other drive on your list', 'Add another drive in Settings > Drives first.', 'warn'); return; }
+  }
+  ui.drives = list; ui.pendingDriveGame = g.id; ui.drivePickMode = mode;
   const m = $('#modal');
   m.innerHTML = `<div class="modal tip drive-pick" role="dialog" aria-modal="true">
     <div class="help-topic">
-      <h2>Where should ${esc(g.port)} go?</h2>
-      <p class="lead">Pick a drive. Updates will stay on the same one.</p>
+      <h2>${mode === 'move' ? `Move ${esc(g.port)} to…` : `Where should ${esc(g.port)} go?`}</h2>
+      <p class="lead">${mode === 'move' ? 'Fulton copies the game there, checks the copy, then removes the old one. Your saves inside the game folder come along. If anything goes wrong, the original stays as it is.' : 'Pick a drive. Updates will stay on the same one.'}</p>
       <div class="drives">${list.map((d, i) => `<button class="drive-choice${d.isDefault ? ' rec' : ''}" data-drive-go="${i}" ${d.connected ? '' : 'disabled'}>
         <b>${esc(d.dir)}</b><span>${d.isDefault ? 'Default · ' : ''}${d.connected ? driveFree(d) : 'Not connected'}</span>${driveBar(d)}</button>`).join('')}</div>
-      <label class="check" style="margin-top:12px"><input type="checkbox" id="drive-dont-ask"> <span>Don't ask again, always use the default</span></label>
+      ${mode === 'move' ? '' : `<label class="check" style="margin-top:12px"><input type="checkbox" id="drive-dont-ask"> <span>Don't ask again, always use the default</span></label>`}
     </div>
     <div class="modal-actions"><button class="btn-link" data-tip-close="1">Cancel</button></div>
   </div>`;
@@ -1898,6 +1957,7 @@ async function setTheme(theme) {
 // ---------------------------------------------------------------- render
 function render() {
   if (!S) return;
+  stashInfo();
   applyBackground();
   renderHeader();
   $('#view').classList.toggle('is-shelf', ui.view === 'shelf');
@@ -1921,6 +1981,7 @@ function openCustomize() { setView('customize'); }
 function setView(view, extra = {}) {
   Object.assign(ui, { view }, extra);
   heroReset();
+  stashInfo();
   $('#view').innerHTML = '';
   render();
   $('#view').scrollTop = 0;
@@ -2062,6 +2123,7 @@ async function onAction(act, g, opts = {}) {
       break;
     }
     case 'uninstall': await guard(() => api.uninstall(g.id)); break;
+    case 'move-drive': await showDrivePicker(g, 'move'); break;
     case 'open-folder': await guard(() => api.openFolder(g.id)); break;
     case 'game-shots': setView('screenshots', { shotGame: g.id }); break;
     case 'open-repo': api.openUrl(`https://github.com/${g.repo}`); break;
@@ -2103,12 +2165,25 @@ async function refreshReleases(btn) {
   toast(n ? `${n} update${n > 1 ? 's' : ''} ready!` : 'Everything is up to date', '', n ? 'ok' : '');
 }
 
+document.addEventListener('dblclick', (e) => {
+  const c = e.target.closest('.card');
+  if (!c || !c.dataset.id || c.dataset.id.startsWith('rom:')) return;
+  const g = S.games.find((x) => x.id === c.dataset.id);
+  if (g && g.installed && !g.job && !g.running) onAction('play', g);
+});
+
 document.addEventListener('click', async (e) => {
   const t = e.target.closest('button, .card, [data-url]');
   if (!t) return;
   if (t.dataset.more) { sectionLimit[t.dataset.more] = limitOf(t.dataset.more) + SECTION_STEP * 2; return renderShelf(); }
   if (t.dataset.findMore) return findMoreFor(t.dataset.fmSystem, t.dataset.fmKind);
-  if (t.classList.contains('card')) { select(t.dataset.id, t); return t.dataset.id.startsWith('rom:') ? undefined : openInfo(true); }
+  if (t.classList.contains('card')) {
+    if (!t.dataset.id) return;
+    const same = ui.selected === t.dataset.id && ui.infoOpen;
+    if (same && e.detail > 1) return;
+    if (same && !t.dataset.id.startsWith('rom:')) return openInfo(false);
+    select(t.dataset.id, t, false); return t.dataset.id.startsWith('rom:') ? undefined : openInfo(true);
+  }
   if (t.dataset.padSetup !== undefined) return startPadSetup(Number(t.dataset.padSetup));
   if (t.dataset.padSkip) return skipPadStep();
   if (t.dataset.padCancel) return finishPadSetup(null, false);
@@ -2163,6 +2238,13 @@ document.addEventListener('click', async (e) => {
     const d = (ui.drives || [])[Number(t.dataset.driveGo)]; const game = S.games.find((x) => x.id === ui.pendingDriveGame);
     const dont = $('#drive-dont-ask') && $('#drive-dont-ask').checked;
     closeTip();
+    if (ui.drivePickMode === 'move') {
+      if (!d || !game) return;
+      toast(`Moving ${game.port}`, `To ${d.dir}. You can keep using Fulton; big games take a while.`);
+      const r = await guard(() => api.moveGame(game.id, d.dir));
+      if (r) toast(`${game.port} moved`, `${r.leftover ? `The old copy at ${r.leftover} couldn't be deleted; you can delete that folder yourself. ` : ''}${r.inSteam ? 'It is also in Steam: remove it from Steam and add it again so the shortcut points to the new place.' : 'Everything points to the new place.'}`, r.leftover || r.inSteam ? 'warn' : 'ok');
+      return;
+    }
     if (dont) { S.settings.askInstallDrive = false; api.settings({ askInstallDrive: false }); }
     return d && game ? onAction('install', game, { root: d.dir }) : undefined;
   }
@@ -2385,8 +2467,13 @@ function heroStep() {
 function heroTo(t) { heroTarget = Math.max(0, Math.min(1, t)); if (!heroRaf) heroRaf = requestAnimationFrame(heroStep); }
 function heroReset() { heroTarget = 0; cancelAnimationFrame(heroRaf); heroRaf = 0; setHeroP(0); }
 function measureHero() {
-  document.querySelectorAll('#detail .plates, #detail .romcart, #detail .hero-more').forEach((el) => el.style.setProperty('--h', `${el.scrollHeight + 8}px`));
+  // generous on purpose: the fold shrinks these blocks from this height down to nothing, and a block that grows a little
+  // after it was measured (fonts, the ROM dropdown, cover art) must never get its last line sliced off
+  document.querySelectorAll('#detail .plates, #detail .romcart, #detail .hero-more').forEach((el) => el.style.setProperty('--h', `${Math.ceil(el.scrollHeight * 1.4) + 32}px`));
 }
+let measureTimer = 0;
+function measureHeroSoon() { measureHero(); clearTimeout(measureTimer); measureTimer = setTimeout(measureHero, 350); }
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureHero);
 function heroWheel(e) {
   if (ui.view !== 'shelf' || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
   if (e.target.closest && e.target.closest('select')) return;
@@ -2405,7 +2492,7 @@ function heroWheel(e) {
 }
 $('#detail').addEventListener('wheel', heroWheel, { passive: false });
 $('#view').addEventListener('wheel', heroWheel, { passive: false });
-new MutationObserver(measureHero).observe($('#detail'), { childList: true });
+new MutationObserver(measureHeroSoon).observe($('#detail'), { childList: true });
 window.addEventListener('resize', measureHero);
 
 $('#view').addEventListener('scroll', () => {

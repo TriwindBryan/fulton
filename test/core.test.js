@@ -1979,3 +1979,47 @@ test('Recompendium light download: reads only the data files, remembers them by 
   assert.deepEqual(items.warn, ['Quiver']);
   assert.ok(items.some((c) => c.repo === 'NekoNeko6330/SoTRecomp'));
 });
+
+test('Move a game to another drive: copy, check, switch over, delete the old copy', async () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'cart-move-'));
+  const cat = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'catalog', 'games.json'), 'utf8'));
+  const id = cat.games[0].id;
+  const lib = await new Library({ dataDir: path.join(work, 'data'), catalogFile: path.join(__dirname, '..', 'catalog', 'games.json'), platform: 'linux' }).load();
+  const a = path.join(work, 'DriveA'), b = path.join(work, 'DriveB');
+  await lib.updateSettings({ libraryDir: a, libraryDirs: [b] });
+  const src = path.join(a, 'Games', id);
+  fs.mkdirSync(path.join(src, 'x', 'y', 'z', 'deep', 'deeper', 'deepest'), { recursive: true });
+  fs.mkdirSync(path.join(src, 'empty-folder'));
+  fs.writeFileSync(path.join(src, 'game'), Buffer.alloc(3000, 1)); fs.chmodSync(path.join(src, 'game'), 0o755);
+  fs.writeFileSync(path.join(src, 'x', 'y', 'z', 'deep', 'deeper', 'deepest', 'save.bin'), 'my save');
+  lib.state.installed[id] = { tag: 'v1', dir: src, exe: path.join(src, 'game'), installedAt: 1, launchedOnce: true, playTime: 5, lastPlayed: 2 };
+  lib.state.steam = { [id]: { appid: 1, exe: path.join(src, 'game') } };
+
+  await assert.rejects(lib.moveGame(id, a), /already on that drive/);
+  await assert.rejects(lib.moveGame(id, path.join(work, 'Elsewhere')), /one of the drives on your list/);
+  lib.running.set(id, {});
+  await assert.rejects(lib.moveGame(id, b), /Close the game first/);
+  lib.running.delete(id);
+
+  const r = await lib.moveGame(id, b);
+  const dest = path.join(b, 'Games', id);
+  assert.equal(r.dir, dest);
+  assert.equal(r.leftover, null);
+  assert.equal(r.inSteam, true);
+  assert.ok(!fs.existsSync(src), 'the old copy is gone');
+  assert.ok(!fs.existsSync(dest + '.moving'), 'no temporary folder is left');
+  assert.equal(fs.readFileSync(path.join(dest, 'x', 'y', 'z', 'deep', 'deeper', 'deepest', 'save.bin'), 'utf8'), 'my save', 'saves, even deep ones, come along');
+  assert.ok(fs.existsSync(path.join(dest, 'empty-folder')));
+  if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(dest, 'game')).mode & 0o111, 0o111, 'the executable bit is kept'); // Windows has no executable bit
+  const i = lib.state.installed[id];
+  assert.equal(i.dir, dest); assert.equal(i.exe, path.join(dest, 'game'));
+  assert.equal(i.playTime, 5, 'play time and history are kept');
+  assert.equal(lib.state.steam[id].exe, path.join(dest, 'game'));
+  assert.equal(lib.rootOf(i.dir), b);
+  assert.equal(lib.jobs.size, 0);
+
+  // a copy you linked yourself is never moved
+  lib.state.installed[id] = { ...i, manual: true };
+  await assert.rejects(lib.moveGame(id, a), /your own copy/);
+  fs.rmSync(work, { recursive: true, force: true });
+});

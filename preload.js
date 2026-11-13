@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('cartridge', {
   pickRomCopyDir: call('pickRomCopyDir'),
   cancel: call('cancel'),
   uninstall: call('uninstall'),
+  moveGame: call('moveGame'),
   linkExe: call('linkExe'),
   launch: call('launch'),
   addRoms: call('addRoms'),

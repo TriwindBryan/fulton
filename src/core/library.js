@@ -1143,6 +1143,7 @@ class Library extends EventEmitter {
     const i = this.state.installed[gameId];
     if (!i) return;
     if (this.running.has(gameId)) throw new Error('Close the game first.');
+    if (this.jobs.has(gameId)) throw new Error('Fulton is still working on this game (installing or moving it). Wait for that to finish first.');
     if (i.manual) { // the player's own copy: forget it, never delete their files
       delete this.state.installed[gameId];
       await this.save();
@@ -1154,6 +1155,69 @@ class Library extends EventEmitter {
     delete this.state.installed[gameId];
     await this.save();
     this.emitChange();
+  }
+
+  // ---------- moving an installed game to another drive ----------
+  /**
+   * Copy a game's folder to another listed drive, check that everything arrived, switch the game over to the new place, and
+   * only then delete the old copy. Anything that goes wrong (full drive, unplugged, cancelled) leaves the original untouched.
+   * Returns { dir, leftover: oldFolderIfItCouldNotBeDeleted | null, inSteam }.
+   */
+  async moveGame(gameId, destRoot) {
+    const i = this.state.installed[gameId];
+    if (!i) throw new Error("That game isn't installed.");
+    if (i.manual) throw new Error("This is your own copy, so Fulton leaves it where you keep it. Move the folder yourself, then use Add your copy again.");
+    if (this.running.has(gameId)) throw new Error('Close the game first.');
+    if (this.jobs.has(gameId)) throw new Error('Something is already happening with this game. Wait for it to finish.');
+    if (!destRoot || !this.locations.some((l) => path.resolve(l).toLowerCase() === path.resolve(destRoot).toLowerCase())) throw new Error('Pick one of the drives on your list (Settings > Drives).');
+    const srcDir = i.dir;
+    if (!fs.existsSync(srcDir)) throw new Error("The game's folder wasn't found. Use Look for my games in Settings > Drives first.");
+    const srcRoot = this.rootOf(srcDir);
+    if (path.resolve(srcRoot).toLowerCase() === path.resolve(destRoot).toLowerCase()) throw new Error('The game is already on that drive.');
+    const destDir = path.join(destRoot, 'Games', gameId);
+    const tmpDir = `${destDir}.moving`;
+    try { if (fs.existsSync(destDir) && (await fsp.readdir(destDir)).length) throw new Error(`There is already a folder at ${destDir}. Fulton won't overwrite it.`); } catch (e) { if (/already a folder/.test(e.message)) throw e; }
+    const before = await inst.treeStats(srcDir);
+    const bytes = [...before.values()].reduce((n, v) => n + Math.max(0, v), 0);
+    const sp = await disk.space(destRoot);
+    if (sp.free != null && sp.free < bytes + 300 * 1024 * 1024) throw new Error(`Not enough room on that drive: the game needs ${disk.fmt(bytes)} and it has ${disk.fmt(sp.free)} free.`);
+
+    const controller = new AbortController();
+    const where = path.parse(path.resolve(destRoot)).root || destRoot;
+    const job = (done) => this.setJob(gameId, { phase: `Moving to ${destRoot}`, progress: bytes ? Math.min(0.99, done / bytes) : null, got: done, total: bytes, cancel: true, abort: controller });
+    job(0);
+    try {
+      await fsp.rm(tmpDir, { recursive: true, force: true });
+      let done = 0, last = 0;
+      await inst.copyTree(srcDir, tmpDir, {
+        signal: controller.signal,
+        onBytes: (n) => { done += n; if (Date.now() - last > 250) { last = Date.now(); job(done); } },
+      });
+      this.setJob(gameId, { phase: 'Checking the copy', progress: null });
+      const after = await inst.treeStats(tmpDir);
+      if (before.size !== after.size || [...before].some(([k, v]) => after.get(k) !== v)) throw new Error("The copy didn't match the original, so Fulton stopped. Your game was not changed.");
+      await fsp.rm(destDir, { recursive: true, force: true });
+      await fsp.rename(tmpDir, destDir);
+    } catch (e) {
+      await fsp.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      this.setJob(gameId, null);
+      if (controller.signal.aborted) throw new Error('Move cancelled. Your game was not changed.');
+      if (e && e.code === 'ENOSPC') throw new Error('That drive ran out of room. Your game was not changed.');
+      throw e;
+    }
+    // switch over, then remove the old copy
+    this.setJob(gameId, { phase: 'Finishing up', progress: null });
+    const remap = (p) => (p && path.resolve(p).toLowerCase().startsWith(path.resolve(srcDir).toLowerCase() + path.sep) ? path.join(destDir, path.relative(srcDir, p)) : p);
+    this.state.installed[gameId] = { ...i, dir: destDir, exe: remap(i.exe) };
+    const steam = (this.state.steam || {})[gameId];
+    if (steam) steam.exe = remap(steam.exe);
+    await this.save();
+    let leftover = null;
+    try { await fsp.rm(srcDir, { recursive: true, force: true }); } catch { leftover = srcDir; }
+    if (!leftover && fs.existsSync(srcDir)) leftover = srcDir;
+    this.setJob(gameId, null);
+    this.emitChange();
+    return { dir: destDir, leftover, inSteam: !!steam, where };
   }
 
   // ---------- launching ----------
@@ -1182,6 +1246,7 @@ class Library extends EventEmitter {
     const i = this.state.installed[gameId];
     if (!i) throw new Error('Install the game first.');
     if (this.running.has(gameId)) return { ok: true, alreadyRunning: true };
+    if (this.jobs.has(gameId)) throw new Error('Fulton is still working on this game (installing or moving it). Wait for that to finish, then press Play.');
     if (!fs.existsSync(i.exe)) throw new Error("The game's files are missing. Reinstall it.");
     const prep = await this.prepareRom(g, i);
     // Most games ask for the ROM themselves, so a missing ROM never blocks Play.
