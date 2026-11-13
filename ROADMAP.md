@@ -1,6 +1,6 @@
 # Fulton roadmap
 
-Ideas that have been discussed but not built yet. Current version: 1.29.
+Ideas that have been discussed but not built yet. Current version: v1.0 (build 1.85, November 13, 2026). Windows and Mac are supported; Linux and code signing are not (no tester, and signing costs money).
 
 ## Emulator support (planned, not started)
 
@@ -46,7 +46,7 @@ Check each one's current download location before building. Some publish on thei
 - **Emulator settings:** graphics and controller setup stay inside each emulator. Fulton only starts games full screen.
 - **Identity:** Fulton becomes a general game frontend (like LaunchBox or Playnite) that favours ports. Keep ports first in the interface.
 
-## Other platforms: Mac (in testing from 1.29), Steam Deck / Linux (planned)
+## Other platforms: Mac (supported since v1.0), Steam Deck / Linux (not supported: no one to test it)
 
 Mac started October 18, 2026 (1.29), built on GitHub Actions. **Confirmed working on an M1 Max as of Beta 0.0015 (October 21, 2026); Fulton is now the go-forward product on Windows and Mac.** Later: Apple Developer ID ($99/year) to sign and notarize. Steam Deck / Linux next.
 

@@ -4,7 +4,9 @@
 
 Discover · Install · Update · Play
 
-*Fulton was called Cartridge until Beta 0.0020. Your saved settings and library folder carry over automatically.*
+**Version 1.0.** Fulton was called Cartridge until Beta 0.0020, and ran as a beta until 1.0. Your saved settings and library folder carry over automatically.
+
+**Supported:** Windows 10/11 and Mac (Apple Silicon and Intel). **Linux is not supported yet** (nobody has been able to test it). The installers are not code-signed (that costs money and Fulton is a free hobby project), so expect a one-time warning on first launch: see the notes below.
 
 A launcher for decompiled and recompiled retro game ports. You bring the ROMs; Fulton finds the ports, downloads them from their official GitHub releases, installs them, puts your ROM where each game expects it, and launches them.
 

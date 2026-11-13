@@ -1,8 +1,11 @@
-# Cartridge changelog
+# Fulton changelog
 
-From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
+The version shown in the app (next to the logo, in the window title, on About and in Settings) is the label, currently **v1.0**. Behind it a build number keeps counting (1.85, 1.86…), because installers and the update check compare that number. Older entries below show the earlier "Beta 0.00xx" labels, and Fulton was called Cartridge until Beta 0.0020.
 
-## Beta 0.0052 (1.85) - Pre-release checks
+## v1.0 (build 1.85) - Out of beta
+
+- Fulton is out of beta. This is version 1.0. The label in the app now says v1.0 instead of Beta 0.00xx; the build number behind it (1.85) keeps counting so installs and updates keep working.
+- Windows and Mac are supported. Linux is not supported yet: nobody has been able to test it. The installers are not code-signed, so Windows may say "Windows protected your PC" and Mac asks you to use Open Anyway the first time.
 
 - Ran a full check pass: unit tests, every button has a handler, every screen opened at four window sizes (900 to 1920 wide), every filter, tab, dropdown, slider and checkbox clicked through, with no script errors and nothing running off the edge of the window.
 - The Screenshots page no longer errors if the screenshot list comes back empty.

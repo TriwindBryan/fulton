@@ -8,7 +8,7 @@ From 1.29, a workflow in `.github/workflows/release.yml` builds the Mac and Wind
 
 1. **Upload the new code.** On your repository page: **Add file → Upload files**, drag in everything in your Fulton folder **except** `node_modules` and `dist` (make sure the `.github` folder is included), then **Commit changes**. Existing files are replaced.
 2. **Make a test build (optional, but do it for the first Mac version).** Go to the **Actions** tab → **Build Fulton** → **Run workflow** → **Run workflow**. After about 10–15 minutes, open the finished run and download **cartridge-mac** (the .dmg files) and **cartridge-windows** from **Artifacts** at the bottom. Send the Mac one to your tester with MAC-TESTING.md.
-3. **Publish the release.** **Releases → Draft a new release**, tag `v1.53` (always `v` + the **build number**, shown as "build 1.52" in Settings and on About, never the beta name), title `Fulton Beta 0.0020`, paste the release text, then **Publish release**. About 10–15 minutes later the .dmg, .msi and portable .exe appear on the release by themselves. You can watch progress on the Actions tab.
+3. **Publish the release.** **Releases → Draft a new release**, tag `v1.85` (always `v` + the **build number**, shown as "build 1.85" in Settings and on About, never the version label), title `Fulton v1.0`, paste the release text, then **Publish release**. About 10–15 minutes later the .dmg, .msi and portable .exe appear on the release by themselves. You can watch progress on the Actions tab.
 
 If a build fails, the Actions tab shows a red ✕; click it, open the failed step, and send the last lines.
 
@@ -37,13 +37,41 @@ The update check looks for releases at **github.com/TriwindBryan/fulton**, so th
 ## 3. Make the first release
 
 1. On the repository page: **Releases → Create a new release**.
-2. **Choose a tag** → type `v1.53` → **Create new tag**. (Always `v` + the build number shown in Settings and on About, never the beta name. The update check compares this number.)
-3. Title: `Fulton Beta 0.0020`
+2. **Choose a tag** → type `v1.85` → **Create new tag**. (Always `v` + the build number shown in Settings and on About, never the version label. The update check compares this number.)
+3. Title: `Fulton v1.0`
 4. Paste the release text below.
-5. Drag in `dist\Fulton-1.53.0-Setup.msi` and `dist\Fulton-1.53.0-Portable.exe`.
+5. Drag in `dist\Fulton-1.85.0-Setup.msi` and `dist\Fulton-1.85.0-Portable.exe` (the Mac .dmg files are attached by GitHub).
 6. Click **Publish release**.
 
 For every later version: bump the version, build, and make a new release the same way with the new tag. Everyone on an older version sees a gold "v1.xx is out" button within 12 hours.
+
+## Release text for v1.0 (paste this one)
+
+```markdown
+## Fulton v1.0
+
+Fulton is a free launcher for decompiled, recompiled and remade PC ports of classic games: Zelda 64: Recompiled, Ship of Harkinian, sm64coopdx, Perfect Dark and many more. It finds the ports, downloads them from their official releases, installs them, puts your ROM where each game expects it, and keeps them updated. You bring your own ROMs; Fulton never moves or deletes them and bundles no games or BIOS files.
+
+### What's new since the betas
+- **A new look everywhere.** A top banner with a big square cover, a frosted-glass filter bar, a click-open drop-down with every option for a game, and glass-style pages for Find more, Updates, Screenshots, My ROMs, Customize, Settings and Help. Sharp corners, readable text, your accent colour.
+- **Find more**: a system picker with a launch-to-end-of-production timeline, platform tags on every card, filters, sort and card size.
+- **Double-click a game (or press Enter) to play.**
+- **Move a game to another drive** from the banner or the drop-down.
+- Many fixes: banner text no longer cut off, drop-down text wraps inside its column, Fulton always opens on the Games tab.
+
+### Download
+**Windows 10/11 (64-bit):** `Fulton-1.85.0-Setup.msi` (installer, recommended) or `Fulton-1.85.0-Portable.exe` (single file, no install).
+**Mac (Apple Silicon and Intel):** the `.dmg` for your Mac. Drag Fulton to Applications.
+
+### Please read
+- **Not code-signed.** Fulton is a free hobby project and signing costs money. Windows may say "Windows protected your PC": click **More info → Run anyway**. On Mac, the first time go to **System Settings → Privacy & Security → Open Anyway**.
+- **Linux is not supported yet.** Nobody has been able to test it, so there is no Linux download.
+- Fulton is free. If it saves you time, you can support it on [Ko-fi](https://ko-fi.com/triwind).
+```
+
+---
+
+(Older release text, kept for reference.)
 
 ### Release text (GitHub)
 
