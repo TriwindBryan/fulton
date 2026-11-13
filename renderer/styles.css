@@ -1831,3 +1831,10 @@ kbd { padding: 1px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.
 .disc-tools .range-sort { order: 0 !important; }
 .disc-tools label, .disc-tools .range-sort, .disc-tools .size-pick, .disc-tools span { white-space: nowrap; }
 @media (max-width: 1379px) { .disc-tools { flex: 1 1 100% !important; } .disc-bar > .btn-link { margin-left: 0 !important; } }
+
+/* drop-down: the foot links stay on one line each, in a tidy row */
+.info.inline .info-foot, .info.inline .info-foot > div { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
+.info.inline .info-foot .btn-link { white-space: nowrap; }
+
+/* the sticky filter bar must hide what scrolls beneath it: tinted but solid enough that no text shows through */
+.fbar { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, rgb(8,14,34)), color-mix(in srgb, var(--accent) 12%, rgb(7,12,30))) !important; backdrop-filter: none !important; }

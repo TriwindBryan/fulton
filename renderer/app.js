@@ -1016,7 +1016,7 @@ function renderInfo() {
   const round = [
     g.sourceOnly ? '' : rb('◉', 'ROM', 'load-rom', noRom ? 'warn' : m ? 'ok' : '', m ? 'Load a different ROM' : 'Load ROM'),
     g.updateAvailable && g.installed ? rb('⬇', 'Update', 'install', 'hot', 'Update to ' + (g.release && g.release.tag)) : '',
-    g.installed ? rb('◔', 'Saves', 'backup-now', '', 'Back up your saves now') : '',
+    g.installed ? rb('↺', 'Saves', 'backup-now', '', 'Back up your saves now') : '',
     rb('▣', 'Shots', 'game-shots', '', 'Screenshots'),
     g.installed && !g.installed.manual ? rb('⇄', 'Move', 'move-drive', '', 'Move to another drive') : '',
     rb(g.favorite ? '★' : '☆', 'Favorite', 'favorite', g.favorite ? 'on' : ''),

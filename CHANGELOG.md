@@ -2,6 +2,15 @@
 
 From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
 
+## Beta 0.0050 (1.83) - Text no longer shows through the filter bar
+
+- When you scroll a game's drop-down, its text slid under the see-through filter bar and showed through behind the bar's own labels (seen on the Mac). The bar is now solid blue glass, so nothing shows through.
+
+## Beta 0.0049 (1.82) - Drop-down tidy
+
+- The Saves button in the drop-down has a clear icon now (it was a tiny dot).
+- Move to another drive, Uninstall and Remove from shelf sit together in a tidy row instead of wrapping onto separate lines.
+
 ## Beta 0.0048 (1.81) - Move to another drive is back where you can see it
 
 - "Move" is now a link in the top banner next to Open folder, Screenshots and Uninstall, as well as in the drop-down. It always shows for an installed game; if you only have one drive on your list it tells you to add another in Settings > Drives.
