@@ -1753,7 +1753,7 @@ let shotsCache = [];
 const shotDate = (ms) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 async function renderScreenshots() {
   $('#view').innerHTML = `<div class="panel" id="shots-page">${panelHead('Screenshots')}<div id="shots-body"><p class="sub">Looking for your screenshots…</p></div></div>`;
-  shotsCache = await api.allShots().catch(() => []);
+  shotsCache = (await api.allShots().catch(() => [])) || [];
   if (ui.view === 'screenshots' && $('#shots-page')) drawScreenshots();
 }
 function shotsFiltered() { return shotsCache.filter((x) => !ui.shotGame || x.gameId === ui.shotGame); }

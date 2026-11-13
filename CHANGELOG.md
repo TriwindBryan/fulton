@@ -2,6 +2,12 @@
 
 From 1.34 Cartridge is shown as **Beta 0.0001** (next to the logo, in the window title, on About and in Settings). Behind that name the build number keeps counting (1.34, 1.35…), because installers and the update check need a number that always goes up. Release tags on GitHub use the build number (v1.34); release titles use the beta name.
 
+## Beta 0.0052 (1.85) - Pre-release checks
+
+- Ran a full check pass: unit tests, every button has a handler, every screen opened at four window sizes (900 to 1920 wide), every filter, tab, dropdown, slider and checkbox clicked through, with no script errors and nothing running off the edge of the window.
+- The Screenshots page no longer errors if the screenshot list comes back empty.
+- The GitHub build now only builds Linux when you press "Run workflow" by hand, so a Linux problem can't mark a Windows/Mac release as failed. Linux is not supported yet.
+
 ## Beta 0.0051 (1.84) - Drop-down text no longer runs into the next column
 
 - Long words in a game's drop-down (a project name like sonicdcer/Starfox64Recomp, a link, a file checksum, the release notes) now wrap inside their own column instead of running across the next one or getting cut off at the window edge.
